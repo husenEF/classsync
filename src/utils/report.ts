@@ -92,7 +92,7 @@ function weekLines(weeks: readonly ReportWeek[], records: readonly ReportRecord[
 export function buildWhatsAppReport({periodLabel, weeks, records, classes}: ReportInput): string {
   // Verbatim: this is the report the coordinator reads, and its wording is a
   // contract with them, not UI copy. Do not 'improve' it.
-  const lines = [`Mohon untuk dikirimkan Laporan Kursus periode ${periodLabel}`, ''];
+  const lines = [`Laporan Kursus periode ${periodLabel}`, ''];
 
   const sections = sectionsOf(records, classes);
 
