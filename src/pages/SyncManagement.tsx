@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {motion} from 'motion/react';
 import {
   Camera,
@@ -7,6 +7,7 @@ import {
   Download,
   Link2,
   QrCode,
+  TriangleAlert,
   Upload,
   Wifi,
   X,
@@ -14,6 +15,7 @@ import {
 import {useApp} from '../context/AppContext';
 import {Button} from '../ui/Button';
 import {Field} from '../ui/Field';
+import {ConfirmDialog} from '../ui/ConfirmDialog';
 
 /** The three things a teacher does, in order, to move data to another phone. */
 const STEPS = [
@@ -55,8 +57,13 @@ export const SyncManagement: React.FC = () => {
     handleSmartMergeImport,
     handleFullBackupExport,
     handleLoadSampleData,
+    handleResetAllData,
+    students,
     showToast,
   } = useApp();
+
+  const [confirmReset, setConfirmReset] = useState(false);
+  const hasData = records.length > 0 || schedules.length > 0 || students.length > 0;
 
   return (
     <motion.div
@@ -312,6 +319,48 @@ export const SyncManagement: React.FC = () => {
           </div>
         </section>
       ) : null}
+
+      {hasData ? (
+        <section className="cs-card cs-card--danger">
+          <h3 className="cs-subtitle">
+            <TriangleAlert className="cs-icon" aria-hidden="true" />
+            Hapus semua data
+          </h3>
+          <p className="cs-muted">
+            Mengosongkan ponsel ini: semua sesi presensi, jadwal, daftar santri, dan draf
+            laporan Excel. Tindakan ini tidak dapat dibatalkan, jadi unduh cadangan di atas
+            dulu.
+          </p>
+          <div className="cs-row">
+            <Button variant="warning" onClick={() => setConfirmReset(true)}>
+              Hapus semua data
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmReset}
+        title="Hapus semua data?"
+        body={
+          <>
+            <p>
+              {records.length} sesi presensi, {schedules.length} jadwal, {students.length}{' '}
+              santri, dan semua draf laporan Excel akan dihapus dari ponsel ini dan tidak
+              dapat dikembalikan.
+            </p>
+            <p>Pengaturan aplikasi, seperti tema, tetap tersimpan.</p>
+          </>
+        }
+        confirmPhrase="HAPUS SEMUA"
+        confirmLabel="Hapus semua data"
+        cancelLabel="Jangan hapus"
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => {
+          setConfirmReset(false);
+          void handleResetAllData();
+        }}
+      />
     </motion.div>
   );
 };

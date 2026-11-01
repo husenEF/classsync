@@ -135,3 +135,23 @@ test('saving over an existing session says what it is replacing', async ({page})
   const sessions = await savedSessions(page);
   expect(sessions).toHaveLength(1);
 });
+
+test("a class the teacher missed is saved with nobody marked", async ({page}) => {
+  const save = page.getByRole('button', {name: /Simpan presensi/});
+  await page.locator('.cs-group__btn').filter({hasText: 'Ngaji Pagi'}).click();
+  await expect(save).toBeDisabled();
+
+  const guru = page.getByRole('radiogroup', {name: /Status kehadiran guru/});
+  await guru.locator('label.cs-status__opt').filter({hasText: 'Izin'}).click();
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(savedConfirmation(page)).toContainText('Guru izin');
+
+  const [session] = await savedSessions(page);
+  expect(session.peserta).toEqual([]);
+  expect(session.guruStatus).toBe('izin');
+
+  await page.getByRole('button', {name: /Riwayat/}).click();
+  await expect(page.getByText('Tidak ada yang hadir.')).toBeVisible();
+  await expect(page.getByText(/^Guru:/)).toBeVisible();
+});

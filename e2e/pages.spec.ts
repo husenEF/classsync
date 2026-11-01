@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {seed} from './helpers';
+import {mark, savedConfirmation, seed} from './helpers';
 
 /**
  * Jadwal and Sinkron.
@@ -17,6 +17,26 @@ test.beforeEach(async ({page}) => {
 
 const openTab = (page: import('@playwright/test').Page, label: string) =>
   page.getByRole('button', {name: label, exact: true}).click();
+
+/** How many rows each table holds, read straight from IndexedDB. */
+const tableCounts = (page: import('@playwright/test').Page) =>
+  page.evaluate(async () => {
+    const stores = ['absensi', 'schedules', 'students', 'excelReports'] as const;
+    const request = indexedDB.open('AttendanceDatabase');
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction([...stores], 'readonly');
+    const counts: Record<string, number> = {};
+    for (const store of stores) {
+      counts[store] = await new Promise<number>((resolve) => {
+        const query = tx.objectStore(store).count();
+        query.onsuccess = () => resolve(query.result);
+      });
+    }
+    db.close();
+    return counts;
+  });
 
 test.describe('Jadwal', () => {
   test('a class can be added and shows when it recurs', async ({page}) => {
@@ -123,6 +143,44 @@ test.describe('Sinkron', () => {
     const qr = page.locator('.cs-qr img');
     await expect(qr).toBeVisible();
     await expect(qr).toHaveAttribute('alt', /QR/i);
+  });
+
+  test('everything can be erased, once the teacher types the phrase', async ({page}) => {
+    await mark(page, 'Ahmad Fauzi', 'Hadir');
+    await page.getByRole('button', {name: /Simpan presensi/}).click();
+    await expect(savedConfirmation(page)).toBeVisible();
+    await page.getByRole('button', {name: /tema gelap/i}).click();
+
+    await openTab(page, 'Sinkron');
+    await page.getByRole('button', {name: 'Hapus semua data'}).click();
+
+    const dialog = page.getByRole('alertdialog');
+    const confirm = dialog.getByRole('button', {name: 'Hapus semua data'});
+    await expect(dialog).toContainText('1 sesi presensi, 2 jadwal, 9 santri');
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel(/Ketik HAPUS SEMUA/).fill('HAPUS SEMUA');
+    await confirm.click();
+
+    await expect(page.getByText('Semua data dihapus dari ponsel ini.')).toBeVisible();
+    expect(await tableCounts(page)).toEqual({absensi: 0, schedules: 0, students: 0, excelReports: 0});
+
+    // Nothing is left to lose, so the sample offer is back; settings stay.
+    await expect(page.getByRole('button', {name: 'Muat data contoh'})).toBeVisible();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+
+    await openTab(page, 'Jadwal');
+    await expect(page.getByText('Belum ada jadwal')).toBeVisible();
+    await openTab(page, 'Presensi');
+    await expect(page.getByText('Belum ada santri')).toBeVisible();
+  });
+
+  test('backing out of the erase keeps everything', async ({page}) => {
+    await openTab(page, 'Sinkron');
+    await page.getByRole('button', {name: 'Hapus semua data'}).click();
+    await page.getByRole('alertdialog').getByRole('button', {name: 'Jangan hapus'}).click();
+
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    expect(await tableCounts(page)).toEqual({absensi: 0, schedules: 2, students: 9, excelReports: 0});
   });
 
   test('the sample data offer is hidden once there is real data to lose', async ({page}) => {

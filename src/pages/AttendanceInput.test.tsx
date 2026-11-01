@@ -679,3 +679,53 @@ describe("the teacher's attendance", () => {
     expect(record.statuses).toEqual({'ahmad fauzi': 'hadir'});
   });
 });
+
+describe('a session the teacher missed', () => {
+  const saveButton = () => screen.getByRole('button', {name: /Simpan presensi/});
+
+  it('saves with no santri marked once the teacher is marked absent', async () => {
+    renderPage();
+    await rosterNames();
+
+    await userEvent.click(await screen.findByRole('button', {name: /Ngaji Pagi/}));
+    expect(saveButton()).toBeDisabled();
+
+    const guru = within(screen.getByRole('radiogroup', {name: /guru Ust\. Ahmad/}));
+    await userEvent.click(guru.getByRole('radio', {name: 'Sakit'}));
+    expect(saveButton()).toBeEnabled();
+    expect(screen.getByText('Disimpan tanpa santri — guru sakit.')).toBeInTheDocument();
+
+    await userEvent.click(saveButton());
+    await waitFor(async () => expect(await db.absensi.count()).toBe(1));
+    const [record] = await db.absensi.toArray();
+    expect(record.peserta).toEqual([]);
+    expect(record.statuses).toEqual({});
+    expect(record.guruStatus).toBe('sakit');
+  });
+
+  it('still asks for santri when the teacher was there', async () => {
+    renderPage();
+    await rosterNames();
+
+    await userEvent.click(await screen.findByRole('button', {name: /Ngaji Pagi/}));
+    const guru = within(screen.getByRole('radiogroup', {name: /guru Ust\. Ahmad/}));
+    await userEvent.click(guru.getByRole('radio', {name: 'Hadir'}));
+    expect(saveButton()).toBeDisabled();
+    expect(await db.absensi.count()).toBe(0);
+  });
+
+  it('saves for a class nobody has been added to yet', async () => {
+    await db.students.clear();
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', {name: /Ngaji Pagi/}));
+    const guru = within(screen.getByRole('radiogroup', {name: /guru Ust\. Ahmad/}));
+    await userEvent.click(guru.getByRole('radio', {name: 'Izin'}));
+    await userEvent.click(saveButton());
+
+    await waitFor(async () => expect(await db.absensi.count()).toBe(1));
+    const [record] = await db.absensi.toArray();
+    expect(record.guruStatus).toBe('izin');
+    expect(record.peserta).toEqual([]);
+  });
+});
