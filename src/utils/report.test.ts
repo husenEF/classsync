@@ -152,6 +152,12 @@ describe('buildWhatsAppReportCompact', () => {
     expect(text.match(/^\*LAPORAN KURSUS\*/gm)).toHaveLength(1);
   });
 
+  it('records a session the teacher missed, with nobody marked', () => {
+    const missed = {tanggal: '2026-10-26', peserta: [], statuses: {}, guruStatus: 'sakit' as const, scheduleId: 1};
+    expect(compact([missed])).toContain('Tgl 26/10 - Guru: Sakit\n-\n');
+    expect(build([missed])).toContain('* Tgl Kursus : 26/10\n* Peserta : -');
+  });
+
   it('omits the class line for classless sessions alone', () => {
     const text = compact([lepas]);
     expect(text).not.toContain('Kelas:');
