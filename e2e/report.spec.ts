@@ -136,6 +136,13 @@ test("the teacher, and a reason for Lainnya, reach both report formats", async (
 
   await page.getByRole('button', {name: /Presensi/}).click();
   await page.locator('.cs-group__btn').filter({hasText: 'Ngaji Pagi'}).click();
+  // Picking the class moves the date to its last Monday, which can fall in
+  // the previous report period; today is always in the one Laporan opens on.
+  const now = new Date();
+  const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((n) => String(n).padStart(2, '0'))
+    .join('-');
+  await page.locator('#tanggal_kegiatan').fill(today);
 
   const guru = page.getByRole('radiogroup', {name: /guru Ust\. Ahmad/});
   await guru.locator('label.cs-status__opt').filter({hasText: 'Sakit'}).click();

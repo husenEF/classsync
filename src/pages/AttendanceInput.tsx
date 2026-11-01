@@ -132,6 +132,12 @@ export const AttendanceInput: React.FC = () => {
     ? getWeekdayOccurrences(linkedSchedule.hari)
     : [];
   const hasRoster = allRegisteredStudents.length > 0;
+  /* With the teacher away there may be no class to mark, and the session is
+     saved on the teacher's mark alone. */
+  const guruAbsent =
+    linkedSchedule !== undefined &&
+    sessionGuruStatus !== undefined &&
+    sessionGuruStatus !== "hadir";
 
   /*
    * The whole roster, always.
@@ -285,6 +291,11 @@ export const AttendanceInput: React.FC = () => {
                   </li>
                 ),
               )}
+              {lastSaved.guruStatus ? (
+                <li className={`cs-chip cs-chip--${lastSaved.guruStatus}`}>
+                  Guru {STATUS_LABEL[lastSaved.guruStatus].toLowerCase()}
+                </li>
+              ) : null}
             </ul>
             <div className="cs-row">
               <Button
@@ -843,13 +854,15 @@ export const AttendanceInput: React.FC = () => {
             size="lg"
             block
             icon={<Save className="cs-icon" />}
-            disabled={tally.marked === 0}
+            disabled={tally.marked === 0 && !guruAbsent}
           >
             Simpan presensi
           </Button>
 
           <p className="cs-muted" aria-live="polite">
-            {tally.marked === 0
+            {tally.marked === 0 && guruAbsent
+              ? `Disimpan tanpa santri — guru ${STATUS_LABEL[sessionGuruStatus].toLowerCase()}.`
+              : tally.marked === 0
               ? "Tandai kehadiran santri untuk menyimpan."
               : remaining > 0
                 ? `${tally.marked} ditandai · ${remaining} belum ikut tersimpan`

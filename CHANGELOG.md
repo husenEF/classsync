@@ -17,6 +17,21 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Added
+
+- **A class the teacher missed can be recorded.** With a class picked and the
+  teacher marked Sakit, Izin, Alpa or Lainnya, *Simpan presensi* works with
+  no santri marked — even for a class nobody has been added to yet. The bar
+  says *Disimpan tanpa santri — guru sakit.*, the saved card shows the
+  teacher's mark, and the reports print the date with `Peserta : -` (klasik)
+  or the teacher's mark and `-` (rapi). A teacher marked Hadir still needs at
+  least one santri marked.
+- **Hapus semua data, on Sinkron.** Empties the phone — sessions, classes,
+  santri and Excel drafts — after typing *HAPUS SEMUA* in the confirmation.
+  Settings such as the theme stay, and so do the markers that stop an old
+  database being imported again. *Hapus semua presensi* on Riwayat still
+  removes sessions only.
+
 ## 2.5.0 — 2026-10-30
 
 ### Added

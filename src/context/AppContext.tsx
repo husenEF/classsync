@@ -83,7 +83,7 @@ interface AppContextType {
   handleRemoveStudent: (name: string) => Promise<void>;
   /** Put a santri in one class, or take them out of any with undefined. */
   assignStudentToSchedule: (name: string, scheduleId: number | undefined) => Promise<void>;
-  lastSaved: { tanggal: string; tally: StatusTally } | null;
+  lastSaved: LastSaved | null;
   dismissLastSaved: () => void;
   handleToggleStudent: (studentName: string) => void;
   isStudentSelected: (studentName: string) => boolean;
@@ -103,6 +103,8 @@ interface AppContextType {
   saveEditedRecord: (id: number) => Promise<void>;
   handleDeleteRecord: (id: number, tanggal: string) => Promise<void>;
   handleClearAllRecords: () => Promise<void>;
+  /** Erase every session, class, santri and Excel draft. Settings stay. */
+  handleResetAllData: () => Promise<void>;
 
   // Schedules States & Handlers
   scheduleTitle: string;
@@ -195,6 +197,8 @@ export const QR_SAFE_CHARS = 1200;
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+export type LastSaved = { tanggal: string; tally: StatusTally; guruStatus?: StatusKey };
+
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 const deviceIsDark = () =>
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
@@ -280,7 +284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sessionDirtyRef = useRef(false);
   /** The teacher has typed a time for this session; a load must not undo it. */
   const waktuTouchedRef = useRef(false);
-  const [lastSaved, setLastSaved] = useState<{ tanggal: string; tally: StatusTally } | null>(null);
+  const [lastSaved, setLastSaved] = useState<LastSaved | null>(null);
   const [schedules, setSchedules] = useState<ScheduleRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -1308,7 +1312,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const typed = parseNameList(namesInput);
     const rosterNames = allRegisteredStudents.length > 0 ? allRegisteredStudents : typed;
 
-    if (rosterNames.length === 0) {
+    // The teacher is only marked against a class; a classless session has
+    // nobody named to mark.
+    const guruStatus = selectedScheduleId !== undefined ? sessionGuruStatus : undefined;
+    // A class whose teacher did not come often did not happen, so there are
+    // no santri to mark. That session is still worth recording.
+    const guruAbsent = guruStatus !== undefined && guruStatus !== 'hadir';
+
+    if (rosterNames.length === 0 && !guruAbsent) {
       showToast('Tambahkan santri terlebih dahulu.', 'error');
       return;
     }
@@ -1316,15 +1327,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const statuses = buildStatusMap(rosterNames, sessionStatuses);
     const parsedPeserta = presentNames(rosterNames, statuses);
 
-    if (Object.keys(statuses).length === 0) {
+    if (Object.keys(statuses).length === 0 && !guruAbsent) {
       showToast('Tandai dulu kehadiran santri sebelum menyimpan.', 'error');
       return;
     }
 
     const keterangan = pruneKeterangan(sessionKeterangan, statuses);
-    // The teacher is only marked against a class; a classless session has
-    // nobody named to mark.
-    const guruStatus = selectedScheduleId !== undefined ? sessionGuruStatus : undefined;
     const guruKeterangan =
       guruStatus === 'etc' ? sessionGuruKeterangan.trim() || undefined : undefined;
 
@@ -1373,7 +1381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSessionStatuses({});
       setTouchedStudents(new Set());
       resetSessionExtras();
-      setLastSaved({ tanggal: tanggalInput, tally: tally(statuses) });
+      setLastSaved({ tanggal: tanggalInput, tally: tally(statuses), guruStatus });
       loadRecords();
       loadStudents();
       // Saving used to jump to the Riwayat tab half a second later, which left
@@ -1424,7 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSessionStatuses({});
       setTouchedStudents(new Set());
       resetSessionExtras();
-      setLastSaved({ tanggal: staged.tanggal, tally: tally(staged.statuses) });
+      setLastSaved({ tanggal: staged.tanggal, tally: tally(staged.statuses), guruStatus: staged.guruStatus });
       loadRecords();
     } catch (err) {
       console.error('Error updating attendance:', err);
@@ -1484,6 +1492,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error('Error clearing records:', err);
       showToast('Gagal menghapus presensi.', 'error');
+    }
+  };
+
+  /**
+   * Start this phone over. Irreversible, so the page confirms with a typed
+   * phrase and offers a backup first.
+   *
+   * Preferences stay, and so do the `migrated_from_db_*` flags: without them
+   * the next load would import the legacy databases again and the reset
+   * would quietly undo itself.
+   */
+  const handleResetAllData = async () => {
+    try {
+      await db.transaction('rw', [db.absensi, db.schedules, db.students, db.excelReports], async () => {
+        await Promise.all([
+          db.absensi.clear(),
+          db.schedules.clear(),
+          db.students.clear(),
+          db.excelReports.clear()
+        ]);
+      });
+
+      sessionKeyRef.current = null;
+      sessionDirtyRef.current = false;
+      setSessionStatuses({});
+      setTouchedStudents(new Set());
+      resetSessionExtras();
+      setSelectedScheduleId(undefined);
+      setNamesInput('');
+      setLastSaved(null);
+      setEditingId(null);
+      setSelectedRecordIds([]);
+      setReportSelectedRecordIds([]);
+      setReportText('');
+      setReportGenerated(false);
+
+      await Promise.all([loadRecords(), loadSchedules()]);
+      await loadStudents();
+      showToast('Semua data dihapus dari ponsel ini.', 'success');
+    } catch (err) {
+      console.error('Error resetting data:', err);
+      showToast('Gagal menghapus data.', 'error');
     }
   };
 
@@ -2170,6 +2220,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       saveEditedRecord,
       handleDeleteRecord,
       handleClearAllRecords,
+      handleResetAllData,
 
       scheduleTitle,
       setScheduleTitle,
