@@ -70,7 +70,7 @@ test('exporting every class groups the report by class', async ({page}) => {
   await page.getByRole('button', {name: /Susun laporan/}).click();
   const all = await page.locator('textarea').first().inputValue();
 
-  expect(all.match(/^Mohon untuk dikirimkan Laporan Kursus periode /gm)).toHaveLength(1);
+  expect(all.match(/^Laporan Kursus periode /gm)).toHaveLength(1);
   const pagi = all.slice(all.indexOf('*Ngaji Pagi*'), all.indexOf('*Tahfidz Sore*'));
   expect(pagi).toContain('* Peserta : Ubin (H)');
   expect(pagi).not.toContain('Aan');

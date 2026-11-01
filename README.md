@@ -69,7 +69,7 @@ di tombol Simpan tetap mencakup seluruh daftar, bukan hanya yang terlihat.
 Laporan disusun per periode dua bulan, dipecah per pekan, siap disalin ke grup:
 
 ```
-Mohon untuk dikirimkan Laporan Kursus periode September - Oktober 2026
+Laporan Kursus periode September - Oktober 2026
 
 26 Oktober-1 November 2026
 * Tgl Kursus : 26/10,

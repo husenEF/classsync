@@ -21,7 +21,7 @@ describe('buildWhatsAppReport', () => {
   it('reads as it always has when every session is from one class', () => {
     expect(build([pagi, pagiMoved])).toBe(
       [
-        'Mohon untuk dikirimkan Laporan Kursus periode September - Oktober 2026',
+        'Laporan Kursus periode September - Oktober 2026',
         '',
         '26 Oktober-1 November 2026',
         '* Tgl Kursus : 26/10,',
@@ -43,7 +43,7 @@ describe('buildWhatsAppReport', () => {
 
     // Classes in their listed order, classless sessions last.
     expect(headings).toEqual(['*Ngaji Pagi*', '*Tahfidz Sore*', '*Tanpa kelas*']);
-    expect(text.match(/^Mohon untuk/gm)).toHaveLength(1);
+    expect(text.match(/^Laporan Kursus/gm)).toHaveLength(1);
   });
 
   it('keeps a session moved to another day inside its class section', () => {
