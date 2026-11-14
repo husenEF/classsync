@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.6.0 — 2026-11-14
+
 ### Changed
 
 - **A report period is now a month, mid-month to mid-month.** It was two whole
