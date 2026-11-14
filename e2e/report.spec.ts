@@ -66,7 +66,7 @@ test('exporting every class groups the report by class', async ({page}) => {
   }
 
   await page.getByRole('button', {name: /Laporan/}).click();
-  await page.locator('#report_period').selectOption({label: 'September - Oktober 2026'});
+  await page.locator('#report_period').selectOption({label: 'Agustus - September 2026'});
   await page.getByRole('button', {name: /Susun laporan/}).click();
   const all = await page.locator('textarea').first().inputValue();
 
@@ -100,7 +100,7 @@ test('the Excel sheet follows the class, with a draft of its own', async ({page}
   }
 
   await page.getByRole('button', {name: /Laporan/}).click();
-  await page.locator('#report_period').selectOption({label: 'September - Oktober 2026'});
+  await page.locator('#report_period').selectOption({label: 'Agustus - September 2026'});
   await page.getByRole('button', {name: /Format Excel/}).click();
 
   const names = () =>

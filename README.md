@@ -66,22 +66,31 @@ di tombol Simpan tetap mencakup seluruh daftar, bukan hanya yang terlihat.
 
 ### Laporan WhatsApp
 
-Laporan disusun per periode dua bulan, dipecah per pekan, siap disalin ke grup:
+Laporan disusun per periode bulanan — pertengahan bulan lalu sampai pertengahan
+bulan ini — dipecah per pekan, siap disalin ke grup:
 
 ```
 Laporan Kursus periode September - Oktober 2026
 
-26 Oktober-1 November 2026
-* Tgl Kursus : 26/10,
+20-26 September 2026
+* Tgl Kursus : 21/09,
 * Peserta : Ubin (H), Budi Santoso (S), Aan (I), Dewi Lestari (A)
-* Tgl Kursus : 28/10
+* Tgl Kursus : 23/09
 * Peserta : Aan (H), Ubin (H)
 ```
 
-Pekan dihitung mulai dari sesi pertama pada periode itu dan selalu paling
-sedikit empat pekan, jadi bila sesi pertama jatuh di akhir periode, pekan
-terakhir bisa melewati bulan periode. Ini disengaja agar bentuk laporan tidak
-berubah dari versi sebelumnya.
+Pekan berjalan Ahad–Sabtu. Periode baru mulai pada hari Ahad yang jatuh tanggal
+15–21, dan berakhir sehari sebelum Ahad seperti itu di bulan berikutnya. Jadi
+satu periode berisi empat pekan, atau lima bila jaraknya 35 hari:
+
+| Periode | Rentang | Pekan |
+|---|---|---|
+| September - Oktober 2026 | 20 Sep – 17 Okt | 4 |
+| Oktober - November 2026 | 18 Okt – 14 Nov | 4 |
+| November - Desember 2026 | 15 Nov – 19 Des | 5 |
+
+Periode saling bersambung, jadi setiap tanggal masuk tepat satu periode dan satu
+pekan. Rentang dan jumlah pekannya tampil di bawah pilihan *Periode laporan*.
 
 Laporan bisa disusun untuk satu kelas atau semua kelas (pilihan *Kelompok
 kelas*). Bila semua kelas diekspor dan sesinya berasal dari lebih dari satu
