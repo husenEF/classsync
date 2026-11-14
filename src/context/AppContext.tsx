@@ -166,7 +166,7 @@ interface AppContextType {
   currentPeriod: ReportPeriod | undefined;
   recordsInSelectedPeriod: AbsensiRecord[];
   filteredRecordsForReport: AbsensiRecord[];
-  bimonthlyWeeks: { id: number; title: string; start: string; end: string; isWeek1: boolean }[];
+  reportWeeks: { id: number; title: string; start: string; end: string; isWeek1: boolean }[];
   handleGenerateReport: () => void;
   handleCopyReport: () => Promise<void>;
   reportTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -888,7 +888,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return recordsInSelectedPeriod.filter(r => r.scheduleId === schedId);
   }, [recordsInSelectedPeriod, reportScheduleFilter]);
 
-  const bimonthlyWeeks = useMemo(() => {
+  const reportWeeks = useMemo(() => {
     return currentPeriod ? periodWeeks(currentPeriod) : [];
   }, [currentPeriod]);
 
@@ -1997,7 +1997,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Generate the period's report
   const handleGenerateReport = () => {
-    if (bimonthlyWeeks.length === 0) {
+    if (reportWeeks.length === 0) {
       showToast('Tidak ada data minggu lapor yang dapat diproses.', 'error');
       return;
     }
@@ -2005,7 +2005,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const build = waFormat === 'rapi' ? buildWhatsAppReportCompact : buildWhatsAppReport;
     const compiledReport = build({
       periodLabel: (currentPeriod ?? currentReportPeriod()).label,
-      weeks: bimonthlyWeeks,
+      weeks: reportWeeks,
       records: records.filter(r => r.id && reportSelectedRecordIds.includes(r.id)),
       classes: schedules
     });
@@ -2245,7 +2245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentPeriod,
       recordsInSelectedPeriod,
       filteredRecordsForReport,
-      bimonthlyWeeks,
+      reportWeeks,
       handleGenerateReport,
       handleCopyReport,
       reportTextareaRef,
