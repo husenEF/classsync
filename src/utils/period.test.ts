@@ -1,50 +1,13 @@
 import {describe, expect, it} from 'vitest';
 import {
-  biMonthlyWeeks,
+  currentReportPeriod,
   formatYMD,
-  getBiMonthlyLabel,
-  getRecordBiMonth,
+  getRecordPeriod,
   parseYMD,
-  periodStart,
+  periodRangeLabel,
+  periodWeeks,
   todayYMD,
 } from './period';
-
-/**
- * The algorithm as it shipped, kept so we can prove the new one produces the
- * same blocks whenever the old one was not losing data.
- */
-function legacyWeeks(
-  period: {year: number; blockIndex: number},
-  recordDates: readonly string[],
-) {
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ];
-  const sorted = [...recordDates].sort();
-  const base =
-    sorted.length > 0
-      ? sorted[0]
-      : `${period.year}-${String(period.blockIndex * 2 + 1).padStart(2, '0')}-01`;
-
-  const [by, bm, bd] = base.split('-').map(Number);
-  const baseDate = new Date(by, bm - 1, bd);
-  const out = [];
-
-  for (let i = 0; i < 4; i++) {
-    const start = new Date(by, bm - 1, bd + i * 7);
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
-    const startMonth = months[start.getMonth()];
-    const endMonth = months[end.getMonth()];
-    const title =
-      startMonth === endMonth
-        ? `${start.getDate()}-${end.getDate()} ${startMonth} ${start.getFullYear()}`
-        : `${start.getDate()} ${startMonth}-${end.getDate()} ${endMonth} ${start.getFullYear()}`;
-    out.push({id: i + 1, title, start: formatYMD(start), end: formatYMD(end), isWeek1: i === 0});
-  }
-  void baseDate;
-  return out;
-}
 
 describe('parseYMD / formatYMD', () => {
   it('round-trips a date without drifting through UTC', () => {
@@ -80,131 +43,132 @@ describe('todayYMD', () => {
   });
 });
 
-describe('getRecordBiMonth', () => {
+const periodOf = (date: string) => {
+  const period = getRecordPeriod(date);
+  if (!period) throw new Error(`${date} has no period`);
+  return period;
+};
+
+describe('getRecordPeriod', () => {
+  // A period starts on the Sunday that falls on the 15th-21st.
   it.each([
-    ['2026-01-15', 0],
-    ['2026-02-28', 0],
-    ['2026-03-01', 1],
-    ['2026-05-24', 2],
-    ['2026-09-07', 4],
-    ['2026-10-19', 4],
-    ['2026-11-01', 5],
-  ])('puts %s in block %i', (date, blockIndex) => {
-    expect(getRecordBiMonth(date).blockIndex).toBe(blockIndex);
+    ['2026-09-01', 'Agustus - September 2026', '2026-08-16', '2026-09-19', 5],
+    ['2026-10-01', 'September - Oktober 2026', '2026-09-20', '2026-10-17', 4],
+    ['2026-11-01', 'Oktober - November 2026', '2026-10-18', '2026-11-14', 4],
+    ['2026-12-01', 'November - Desember 2026', '2026-11-15', '2026-12-19', 5],
+    ['2027-01-01', 'Desember 2026 - Januari 2027', '2026-12-20', '2027-01-16', 4],
+  ])('puts %s in %s', (date, label, start, end, weekCount) => {
+    const period = periodOf(date);
+    expect(period.label).toBe(label);
+    expect(period.start).toBe(start);
+    expect(period.end).toBe(end);
+    expect(periodWeeks(period)).toHaveLength(weekCount);
   });
 
-  it('builds a year-block key', () => {
-    expect(getRecordBiMonth('2026-10-19').key).toBe('2026-4');
+  it('changes period on the boundary Sunday, not a day before', () => {
+    expect(periodOf('2026-09-19').label).toBe('Agustus - September 2026');
+    expect(periodOf('2026-09-20').label).toBe('September - Oktober 2026');
+    expect(periodOf('2026-10-17').label).toBe('September - Oktober 2026');
+    expect(periodOf('2026-10-18').label).toBe('Oktober - November 2026');
   });
 
-  it('does not shift a first-of-month date into the previous block', () => {
-    // The UTC parse made this the 28th of the previous month west of UTC.
-    expect(getRecordBiMonth('2026-03-01').key).toBe('2026-1');
-    expect(getRecordBiMonth('2026-09-01').key).toBe('2026-4');
-  });
-});
-
-describe('getBiMonthlyLabel / periodStart', () => {
-  it('labels the six blocks', () => {
-    expect(getBiMonthlyLabel(0, 2026)).toBe('Januari - Februari 2026');
-    expect(getBiMonthlyLabel(4, 2026)).toBe('September - Oktober 2026');
-    expect(getBiMonthlyLabel(5, 2025)).toBe('November - Desember 2025');
+  it('keys a period by the month it ends in', () => {
+    expect(periodOf('2026-10-01').key).toBe('2026-10');
+    expect(periodOf('2026-09-01').key).toBe('2026-09');
+    expect(periodOf('2026-12-25').key).toBe('2027-01');
+    expect(periodOf('2026-12-25')).toMatchObject({year: 2027, month: 1});
   });
 
-  it('starts a period on the first of its first month', () => {
-    expect(periodStart({year: 2026, blockIndex: 4})).toBe('2026-09-01');
-    expect(periodStart({year: 2026, blockIndex: 0})).toBe('2026-01-01');
-  });
-});
-
-describe('biMonthlyWeeks', () => {
-  const sepOkt = {year: 2026, blockIndex: 4};
-
-  it('anchors on the first session and runs in 7-day blocks', () => {
-    const weeks = biMonthlyWeeks(sepOkt, ['2026-09-07']);
-    expect(weeks[0].start).toBe('2026-09-07');
-    expect(weeks[0].end).toBe('2026-09-13');
-    expect(weeks[1].start).toBe('2026-09-14');
-    expect(weeks[0].isWeek1).toBe(true);
-    expect(weeks[1].isWeek1).toBe(false);
-  });
-
-  it('titles a block inside one month as "7-13 September 2026"', () => {
-    expect(biMonthlyWeeks(sepOkt, ['2026-09-07'])[0].title).toBe('7-13 September 2026');
-  });
-
-  it('titles a block spanning two months as "28 September-4 Oktober 2026"', () => {
-    const weeks = biMonthlyWeeks(sepOkt, ['2026-09-07']);
-    expect(weeks[3].title).toBe('28 September-4 Oktober 2026');
-  });
-
-  it('falls back to the start of the period when there are no sessions', () => {
-    const weeks = biMonthlyWeeks(sepOkt, []);
-    expect(weeks[0].start).toBe('2026-09-01');
-    expect(weeks).toHaveLength(4);
-  });
-
-  // The bug: a two-month period is 59-62 days, but only 4 blocks (28 days)
-  // were ever produced.
-  it('covers every session, including ones more than four weeks after the first', () => {
-    const dates = [
-      '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28',
-      '2026-10-05', '2026-10-12', '2026-10-19',
-    ];
-    const weeks = biMonthlyWeeks(sepOkt, dates);
-
-    for (const date of dates) {
-      const covering = weeks.filter((w) => date >= w.start && date <= w.end);
-      expect(covering, `${date} is in no week block`).toHaveLength(1);
+  it('never produces a key the two-month periods used', () => {
+    // Old keys were "2026-0" … "2026-5"; saved Excel drafts still carry them.
+    for (let m = 0; m < 12; m++) {
+      expect(periodOf(formatYMD(new Date(2026, m, 1))).key).toMatch(/^\d{4}-\d{2}$/);
     }
   });
 
-  it('would have dropped three sessions before the fix', () => {
-    const dates = [
-      '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28',
-      '2026-10-05', '2026-10-12', '2026-10-19',
-    ];
-    const old = legacyWeeks(sepOkt, dates);
-    const dropped = dates.filter(
-      (d) => !old.some((w) => d >= w.start && d <= w.end),
-    );
-    expect(dropped).toEqual(['2026-10-05', '2026-10-12', '2026-10-19']);
+  it('returns null for something that is not a date', () => {
+    expect(getRecordPeriod('')).toBeNull();
+    expect(getRecordPeriod('besok')).toBeNull();
   });
 
-  it('produces exactly the old blocks when the old ones already covered the data', () => {
-    // Everything within 28 days of the first session: output must not change.
-    const cases: string[][] = [
-      ['2026-09-07'],
-      ['2026-09-07', '2026-09-14'],
-      ['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'],
-      ['2026-10-01', '2026-10-08'],
-      [],
-    ];
-    for (const dates of cases) {
-      expect(biMonthlyWeeks(sepOkt, dates)).toEqual(legacyWeeks(sepOkt, dates));
+  it('puts every day of three years in exactly one period and one week', () => {
+    let previous = periodOf('2025-01-01');
+    for (let i = 0; i < 365 * 3; i++) {
+      const date = formatYMD(new Date(2025, 0, 1 + i));
+      const period = periodOf(date);
+
+      expect(date >= period.start && date <= period.end, date).toBe(true);
+      const covering = periodWeeks(period).filter((w) => date >= w.start && date <= w.end);
+      expect(covering, `${date} is in no week, or in two`).toHaveLength(1);
+
+      if (period.key !== previous.key) {
+        // Periods join end to start, and a new one opens mid-month on a Sunday.
+        const start = parseYMD(period.start) as Date;
+        const dayBefore = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
+        expect(formatYMD(dayBefore)).toBe(previous.end);
+        expect(start.getDay()).toBe(0);
+        expect(start.getDate()).toBeGreaterThanOrEqual(15);
+        expect(start.getDate()).toBeLessThanOrEqual(21);
+        previous = period;
+      }
+    }
+  });
+});
+
+describe('currentReportPeriod', () => {
+  it('is the period today falls in', () => {
+    expect(currentReportPeriod(new Date(2026, 10, 14, 23, 30)).label).toBe('Oktober - November 2026');
+    expect(currentReportPeriod(new Date(2026, 10, 15, 0, 30)).label).toBe('November - Desember 2026');
+  });
+});
+
+describe('periodWeeks', () => {
+  const sepOkt = periodOf('2026-10-01');
+
+  it('runs Ahad to Sabtu from the start of the period to its end', () => {
+    expect(periodWeeks(sepOkt).map((w) => w.title)).toEqual([
+      '20-26 September 2026',
+      '27 September-3 Oktober 2026',
+      '4-10 Oktober 2026',
+      '11-17 Oktober 2026',
+    ]);
+  });
+
+  it('numbers the blocks and marks the first', () => {
+    const weeks = periodWeeks(sepOkt);
+    expect(weeks.map((w) => w.id)).toEqual([1, 2, 3, 4]);
+    expect(weeks.map((w) => w.isWeek1)).toEqual([true, false, false, false]);
+    expect(weeks[0]).toMatchObject({start: '2026-09-20', end: '2026-09-26'});
+  });
+
+  it('adds a fifth week when the period is 35 days', () => {
+    const weeks = periodWeeks(periodOf('2026-12-01'));
+    expect(weeks).toHaveLength(5);
+    expect(weeks[0].title).toBe('15-21 November 2026');
+    expect(weeks[4].title).toBe('13-19 Desember 2026');
+  });
+
+  it('is only ever four or five weeks', () => {
+    for (let m = 0; m < 48; m++) {
+      const count = periodWeeks(periodOf(formatYMD(new Date(2025, m, 1)))).length;
+      expect([4, 5]).toContain(count);
     }
   });
 
-  it('never returns fewer than four blocks', () => {
-    expect(biMonthlyWeeks(sepOkt, ['2026-09-07'])).toHaveLength(4);
-    expect(biMonthlyWeeks(sepOkt, [])).toHaveLength(4);
+  it('titles a week that crosses the new year with the year it starts in', () => {
+    const weeks = periodWeeks(periodOf('2027-01-01'));
+    expect(weeks[1].title).toBe('27 Desember-2 Januari 2026');
+    expect(weeks[1].end).toBe('2027-01-02');
+  });
+});
+
+describe('periodRangeLabel', () => {
+  it('shows the dates and the number of weeks', () => {
+    expect(periodRangeLabel(periodOf('2026-10-01'))).toBe('20 Sep – 17 Okt 2026 · 4 pekan');
+    expect(periodRangeLabel(periodOf('2026-12-01'))).toBe('15 Nov – 19 Des 2026 · 5 pekan');
   });
 
-  it('adds only as many blocks as the data needs', () => {
-    // First session 7 Sep, last 19 Oct = 42 days = 7 blocks.
-    const weeks = biMonthlyWeeks(sepOkt, ['2026-09-07', '2026-10-19']);
-    expect(weeks).toHaveLength(7);
-    expect(weeks[6].end).toBe('2026-10-25');
-  });
-
-  it('counts a year boundary correctly', () => {
-    const novDes = {year: 2026, blockIndex: 5};
-    const weeks = biMonthlyWeeks(novDes, ['2026-12-28']);
-    expect(weeks[0].title).toBe('28 Desember-3 Januari 2026');
-    expect(weeks[0].end).toBe('2027-01-03');
-  });
-
-  it('ignores empty date strings', () => {
-    expect(biMonthlyWeeks(sepOkt, ['', '2026-09-07'])[0].start).toBe('2026-09-07');
+  it('names both years when the period crosses one', () => {
+    expect(periodRangeLabel(periodOf('2027-01-01'))).toBe('20 Des 2026 – 16 Jan 2027 · 4 pekan');
   });
 });

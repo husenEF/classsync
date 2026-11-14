@@ -17,6 +17,20 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Changed
+
+- **A report period is now a month, mid-month to mid-month.** It was two whole
+  calendar months, with weeks counted from the first session. A period now
+  starts on the Sunday that falls on the 15th–21st and runs in Ahad–Sabtu
+  weeks until the next one: *September - Oktober 2026* is 20 Sep – 17 Okt.
+  That is four weeks, or five when the calendar needs it (*November -
+  Desember 2026*, 15 Nov – 19 Des). The dates and the number of weeks show
+  under *Periode laporan*. Week dates no longer depend on which sessions
+  exist.
+- Excel drafts saved under the old two-month periods do not match a new
+  period and no longer open; the sheet is filled from attendance again.
+  Attendance itself is untouched.
+
 ### Added
 
 - **A class the teacher missed can be recorded.** With a class picked and the
