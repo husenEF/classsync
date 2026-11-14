@@ -76,7 +76,7 @@ Menyimpan daftar jadwal berulang di setiap pekannya.
 - Pintasan cepat: Tombol `"Input Absensi Sesi Ini"` ditempatkan langsung di item kartu jadwal, memindahkan pengguna langsung ke tab input presensi lengkap dengan tanggal dan sesi terhubung yang sudah terisi otomatis.
 
 ### 4.3. Saringan & Generator Laporan Mingguan Terpilah (Isolated Report Generator)
-- **Komponen Periode**: Menghitung paginasi otomatis per 2-bulan (misal: Mei-Juni 2026), membagi rentang waktu bulan berjalan menjadi 4 pekan matriks laporan.
+- **Komponen Periode**: Periode bulanan dari pertengahan bulan lalu sampai pertengahan bulan ini (misal: September - Oktober 2026 = 20 Sep–17 Okt). Periode mulai pada hari Ahad yang jatuh tanggal 15–21 dan dibagi menjadi pekan Ahad–Sabtu: 4 pekan, atau 5 bila jaraknya 35 hari.
 - **Filter Sesi Jadwal / Pengingat**:
   - Menyediakan filter dropdown khusus berisi opsi: "Semua Sesi", "Hanya Sesi Tanpa Hubungan Jadwal", atau daftar jadwal mengajar spesifik.
   - Memilih filter ini otomatis membagi dan menyaring daftar periksa di *"Pilih Presensi yang Disertakan"* agar tidak saling tumpang tindih dengan data jadwal kursus yang lain.

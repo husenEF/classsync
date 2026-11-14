@@ -6,14 +6,7 @@ import { buildStatusMap, nameKey, splitByClass, parseNameList, presentNames, pru
 import { formatIndonesianDate } from '../utils/date';
 import { isTooLongForWhatsApp, WHATSAPP_MAX_CHARS } from '../utils/share';
 import { buildWhatsAppReport, buildWhatsAppReportCompact, type WaReportFormat } from '../utils/report';
-import { biMonthlyWeeks, getBiMonthlyLabel, getRecordBiMonth, todayYMD } from '../utils/period';
-
-interface BiMonthlyPeriod {
-  year: number;
-  blockIndex: number;
-  label: string;
-  key: string;
-}
+import { currentReportPeriod, getRecordPeriod, periodWeeks, todayYMD, type ReportPeriod } from '../utils/period';
 
 interface AppContextType {
   // Navigation & UI
@@ -169,8 +162,8 @@ interface AppContextType {
   waFormat: WaReportFormat;
   setWaFormat: (format: WaReportFormat) => void;
   copied: boolean;
-  availablePeriods: BiMonthlyPeriod[];
-  currentPeriod: BiMonthlyPeriod | undefined;
+  availablePeriods: ReportPeriod[];
+  currentPeriod: ReportPeriod | undefined;
   recordsInSelectedPeriod: AbsensiRecord[];
   filteredRecordsForReport: AbsensiRecord[];
   bimonthlyWeeks: { id: number; title: string; start: string; end: string; isWeek1: boolean }[];
@@ -857,53 +850,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => query.removeEventListener?.('change', onChange);
   }, [themeMode]);
 
-  // Available bimonthly periods
-  const availablePeriods = useMemo<BiMonthlyPeriod[]>(() => {
-    const periodsMap = new Map<string, BiMonthlyPeriod>();
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curBlock = Math.floor(now.getMonth() / 2);
-    const curKey = `${curYear}-${curBlock}`;
-
-    periodsMap.set(curKey, {
-      year: curYear,
-      blockIndex: curBlock,
-      label: getBiMonthlyLabel(curBlock, curYear),
-      key: curKey
-    });
+  // Available report periods: the one today is in, plus any with sessions
+  const availablePeriods = useMemo<ReportPeriod[]>(() => {
+    const periodsMap = new Map<string, ReportPeriod>();
+    const current = currentReportPeriod();
+    periodsMap.set(current.key, current);
 
     records.forEach(r => {
-      const { year, blockIndex, key } = getRecordBiMonth(r.tanggal);
-      if (!periodsMap.has(key)) {
-        periodsMap.set(key, {
-          year,
-          blockIndex,
-          label: getBiMonthlyLabel(blockIndex, year),
-          key
-        });
-      }
+      const period = getRecordPeriod(r.tanggal);
+      if (period && !periodsMap.has(period.key)) periodsMap.set(period.key, period);
     });
 
-    return Array.from(periodsMap.values()).sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.blockIndex - b.blockIndex;
-    });
+    return Array.from(periodsMap.values()).sort((a, b) => a.start.localeCompare(b.start));
   }, [records]);
 
   // Set default selected key
   useEffect(() => {
     if (availablePeriods.length > 0 && !selectedPeriodKey) {
-      const hasMeiJuni = availablePeriods.find(p => p.key === "2026-2");
-      if (hasMeiJuni) {
-        setSelectedPeriodKey("2026-2");
-      } else {
-        const withData = availablePeriods.find(p => records.some(r => getRecordBiMonth(r.tanggal).key === p.key));
-        if (withData) {
-          setSelectedPeriodKey(withData.key);
-        } else {
-          setSelectedPeriodKey(availablePeriods[availablePeriods.length - 1].key);
-        }
-      }
+      const withData = availablePeriods.find(p => records.some(r => getRecordPeriod(r.tanggal)?.key === p.key));
+      setSelectedPeriodKey((withData ?? availablePeriods[availablePeriods.length - 1]).key);
     }
   }, [availablePeriods, selectedPeriodKey, records]);
 
@@ -913,7 +878,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const recordsInSelectedPeriod = useMemo(() => {
     if (!selectedPeriodKey) return [];
-    return records.filter(r => getRecordBiMonth(r.tanggal).key === selectedPeriodKey);
+    return records.filter(r => getRecordPeriod(r.tanggal)?.key === selectedPeriodKey);
   }, [records, selectedPeriodKey]);
 
   const filteredRecordsForReport = useMemo(() => {
@@ -924,12 +889,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [recordsInSelectedPeriod, reportScheduleFilter]);
 
   const bimonthlyWeeks = useMemo(() => {
-    if (!currentPeriod) return [];
-    const periodDates = records
-      .filter(r => getRecordBiMonth(r.tanggal).key === currentPeriod.key)
-      .map(r => r.tanggal);
-    return biMonthlyWeeks(currentPeriod, periodDates);
-  }, [currentPeriod, records]);
+    return currentPeriod ? periodWeeks(currentPeriod) : [];
+  }, [currentPeriod]);
 
   // Update selection states for reports when filters or period changes
   useEffect(() => {
@@ -2034,7 +1995,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Generate bimonthly report
+  // Generate the period's report
   const handleGenerateReport = () => {
     if (bimonthlyWeeks.length === 0) {
       showToast('Tidak ada data minggu lapor yang dapat diproses.', 'error');
@@ -2043,7 +2004,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const build = waFormat === 'rapi' ? buildWhatsAppReportCompact : buildWhatsAppReport;
     const compiledReport = build({
-      periodLabel: currentPeriod ? currentPeriod.label : "Mei-Juni 2026",
+      periodLabel: (currentPeriod ?? currentReportPeriod()).label,
       weeks: bimonthlyWeeks,
       records: records.filter(r => r.id && reportSelectedRecordIds.includes(r.id)),
       classes: schedules

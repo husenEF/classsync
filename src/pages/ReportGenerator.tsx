@@ -5,6 +5,7 @@ import { escapeHtml } from "../roster";
 import { isTooLongForWhatsApp, shareToWhatsApp } from "../utils/share";
 import { Button } from "../ui/Button";
 import { formatIndonesianDate } from "../utils/date";
+import { periodRangeLabel } from "../utils/period";
 import { db, ExcelReportRecord } from "../db";
 import {
   AlertCircle,
@@ -709,10 +710,11 @@ export const ReportGenerator: React.FC = () => {
         <div className="cs-grid-2">
           <div className="cs-field">
             <label className="cs-field__label" htmlFor="report_period">
-              Periode laporan (dua bulan)
+              Periode laporan
             </label>
             <select
               id="report_period"
+              aria-describedby="report_period_range"
               value={selectedPeriodKey}
               onChange={(e) => setSelectedPeriodKey(e.target.value)}
               className="cs-select"
@@ -723,6 +725,11 @@ export const ReportGenerator: React.FC = () => {
                 </option>
               ))}
             </select>
+            {currentPeriod && (
+              <p className="cs-field__hint" id="report_period_range">
+                {periodRangeLabel(currentPeriod)}
+              </p>
+            )}
           </div>
 
           <div className="cs-field">

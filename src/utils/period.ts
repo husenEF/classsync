@@ -1,23 +1,22 @@
 /**
- * Two-month reporting periods and their weekly blocks.
+ * Monthly reporting periods and their weekly blocks.
  *
- * Extracted from AppContext so the maths can be tested. Two bugs are fixed
- * here, and nothing else about the output changes:
+ * A report covers the middle of one month to the middle of the next, in whole
+ * Ahad-Sabtu weeks. A period starts on the Sunday that falls on the 15th-21st
+ * of a month — there is exactly one — and runs until the day before the next
+ * such Sunday. That is 28 or 35 days, so a period is four weeks, or five when
+ * the calendar needs the extra one to stay mid-month:
  *
- * 1. Dates were parsed with `new Date("YYYY-MM-DD")`, which is UTC midnight,
- *    then read back with local getters. In Asia/Jakarta that happens to work;
- *    anywhere west of UTC it shifted every date back a day. Parsing is now
- *    component-wise and local, like formatIndonesianDate already did.
+ *   September - Oktober 2026   20 Sep - 17 Okt   4 pekan
+ *   Oktober - November 2026    18 Okt - 14 Nov   4 pekan
+ *   November - Desember 2026   15 Nov - 19 Des   5 pekan
  *
- * 2. The report always emitted exactly 4 weekly blocks starting at the first
- *    session of the period. A two-month period is 59-62 days, so any session
- *    more than 27 days after the first one was silently dropped — it appeared
- *    in the UI, counted as selected, and then never reached the report.
+ * Periods join end to start, so every date is in exactly one period and one
+ * week, whatever sessions exist.
  *
- *    The blocks are still anchored on the first session and there are still at
- *    least 4 of them, so for data that already fitted the output is unchanged.
- *    Extra blocks are only added when they are needed to carry a session that
- *    would otherwise have been lost.
+ * Dates are parsed component-wise and local, never with
+ * `new Date("YYYY-MM-DD")`, which is UTC midnight and shifts the day west of
+ * UTC.
  */
 
 export const INDONESIAN_MONTHS = [
@@ -35,23 +34,28 @@ export const INDONESIAN_MONTHS = [
   'Desember',
 ] as const;
 
-const BI_MONTHLY_LABELS = [
-  'Januari - Februari',
-  'Maret - April',
-  'Mei - Juni',
-  'Juli - Agustus',
-  'September - Oktober',
-  'November - Desember',
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
 ] as const;
 
-/** The minimum number of weekly blocks, kept so existing reports are unchanged. */
-export const MIN_WEEK_BLOCKS = 4;
+/** A period never starts before this day of the month… */
+const BOUNDARY_FIRST_DAY = 15;
+/** …and its weeks start on this weekday (0 = Ahad). */
+const WEEK_START_DAY = 0;
 
-export type BiMonthlyPeriod = {
+export type ReportPeriod = {
+  /** Year and month (1-12) the period ends in. */
   year: number;
-  blockIndex: number;
-  label: string;
+  month: number;
+  /** "YYYY-MM" of the month it ends in. */
   key: string;
+  /** "September - Oktober 2026". */
+  label: string;
+  /** Inclusive "YYYY-MM-DD". */
+  start: string;
+  /** Inclusive "YYYY-MM-DD". */
+  end: string;
 };
 
 export type WeekBlock = {
@@ -87,26 +91,54 @@ export function todayYMD(now: Date = new Date()): string {
   return formatYMD(now);
 }
 
-export function getBiMonthlyLabel(blockIndex: number, year: number): string {
-  return `${BI_MONTHLY_LABELS[blockIndex]} ${year}`;
+/**
+ * The day a new period starts in a month: the Sunday on the 15th-21st.
+ * `monthIndex` is 0-based and may overflow (-1 is last December).
+ */
+function periodBoundary(year: number, monthIndex: number): Date {
+  const first = new Date(year, monthIndex, BOUNDARY_FIRST_DAY);
+  const offset = (WEEK_START_DAY - first.getDay() + 7) % 7;
+  return new Date(first.getFullYear(), first.getMonth(), BOUNDARY_FIRST_DAY + offset);
 }
 
-/** Which two-month block a date falls in. */
-export function getRecordBiMonth(dateStr: string): {
-  year: number;
-  blockIndex: number;
-  key: string;
-} {
-  const date = parseYMD(dateStr) ?? new Date(NaN);
+/** The period that ends in the given month. `monthIndex` is 0-based and may overflow. */
+function periodEndingIn(year: number, monthIndex: number): ReportPeriod {
+  const start = periodBoundary(year, monthIndex - 1);
+  const next = periodBoundary(year, monthIndex);
+  const end = new Date(next.getFullYear(), next.getMonth(), next.getDate() - 1);
+
+  const startMonth = INDONESIAN_MONTHS[start.getMonth()];
+  const endMonth = INDONESIAN_MONTHS[end.getMonth()];
+  const label =
+    start.getFullYear() === end.getFullYear()
+      ? `${startMonth} - ${endMonth} ${end.getFullYear()}`
+      : `${startMonth} ${start.getFullYear()} - ${endMonth} ${end.getFullYear()}`;
+
+  return {
+    year: end.getFullYear(),
+    month: end.getMonth() + 1,
+    key: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`,
+    label,
+    start: formatYMD(start),
+    end: formatYMD(end),
+  };
+}
+
+/** The period a date falls in, or null if the date is not "YYYY-MM-DD". */
+export function getRecordPeriod(dateStr: string): ReportPeriod | null {
+  const date = parseYMD(dateStr);
+  if (!date) return null;
   const year = date.getFullYear();
-  const blockIndex = Math.floor(date.getMonth() / 2);
-  return {year, blockIndex, key: `${year}-${blockIndex}`};
+  const monthIndex = date.getMonth();
+  // On or after this month's boundary, the date opens the period that ends
+  // next month; before it, it closes the one that ends this month.
+  const startsNext = date.getTime() >= periodBoundary(year, monthIndex).getTime();
+  return periodEndingIn(year, startsNext ? monthIndex + 1 : monthIndex);
 }
 
-/** The first day of a period, "YYYY-MM-DD". */
-export function periodStart(period: Pick<BiMonthlyPeriod, 'year' | 'blockIndex'>): string {
-  const month = period.blockIndex * 2 + 1;
-  return `${period.year}-${String(month).padStart(2, '0')}-01`;
+/** The period today falls in. */
+export function currentReportPeriod(now: Date = new Date()): ReportPeriod {
+  return getRecordPeriod(formatYMD(now)) as ReportPeriod;
 }
 
 function weekTitle(start: Date, end: Date): string {
@@ -119,34 +151,15 @@ function weekTitle(start: Date, end: Date): string {
     : `${start.getDate()} ${startMonth}-${end.getDate()} ${endMonth} ${startYear}`;
 }
 
-/**
- * The weekly blocks a report is built from.
- *
- * @param period     the selected two-month period
- * @param recordDates every session date in that period, any order
- */
-export function biMonthlyWeeks(
-  period: Pick<BiMonthlyPeriod, 'year' | 'blockIndex'>,
-  recordDates: readonly string[],
-): WeekBlock[] {
-  const sorted = [...recordDates].filter(Boolean).sort();
-  const anchorStr = sorted.length > 0 ? sorted[0] : periodStart(period);
-  const anchor = parseYMD(anchorStr);
-  if (!anchor) return [];
-
-  // Enough blocks to reach the last session, never fewer than before.
-  let blocks = MIN_WEEK_BLOCKS;
-  if (sorted.length > 0) {
-    const last = parseYMD(sorted[sorted.length - 1]);
-    if (last) {
-      const days = Math.floor((last.getTime() - anchor.getTime()) / 86_400_000);
-      blocks = Math.max(MIN_WEEK_BLOCKS, Math.floor(days / 7) + 1);
-    }
-  }
+/** The weekly blocks of a period: four, or five when the period is 35 days. */
+export function periodWeeks(period: Pick<ReportPeriod, 'start' | 'end'>): WeekBlock[] {
+  const first = parseYMD(period.start);
+  if (!first) return [];
 
   const weeks: WeekBlock[] = [];
-  for (let i = 0; i < blocks; i++) {
-    const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + i * 7);
+  for (let i = 0; ; i++) {
+    const start = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i * 7);
+    if (formatYMD(start) > period.end) break;
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
 
     weeks.push({
@@ -157,6 +170,17 @@ export function biMonthlyWeeks(
       isWeek1: i === 0,
     });
   }
-
   return weeks;
+}
+
+/** "20 Sep – 17 Okt 2026 · 4 pekan", shown under the period picker. */
+export function periodRangeLabel(period: Pick<ReportPeriod, 'start' | 'end'>): string {
+  const start = parseYMD(period.start);
+  const end = parseYMD(period.end);
+  if (!start || !end) return '';
+
+  const day = (d: Date) => `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  const from =
+    start.getFullYear() === end.getFullYear() ? day(start) : `${day(start)} ${start.getFullYear()}`;
+  return `${from} – ${day(end)} ${end.getFullYear()} · ${periodWeeks(period).length} pekan`;
 }
