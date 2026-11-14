@@ -27,6 +27,7 @@ release will refuse to run on an empty one.
   Desember 2026*, 15 Nov – 19 Des). The dates and the number of weeks show
   under *Periode laporan*. Week dates no longer depend on which sessions
   exist.
+- The third-week reminder now says *laporan bulanan*, not *dua bulanan*.
 - Excel drafts saved under the old two-month periods do not match a new
   period and no longer open; the sheet is filled from attendance again.
   Attendance itself is untouched.
