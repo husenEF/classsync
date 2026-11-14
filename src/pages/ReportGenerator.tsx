@@ -668,7 +668,7 @@ export const ReportGenerator: React.FC = () => {
             </button>
           </div>
           <p className="cs-muted">
-            Sudah tanggal 15-21. Waktunya menyusun laporan dua bulanan dan
+            Sudah tanggal 15-21. Waktunya menyusun laporan bulanan dan
             mengirimkannya ke koordinator.
           </p>
         </motion.section>
