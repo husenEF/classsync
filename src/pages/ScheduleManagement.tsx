@@ -19,6 +19,84 @@ type Schedule = {
 };
 
 /**
+ * A saved class's heading, with its name editable in place. Attendance,
+ * santri and Excel drafts point at the class by id, so a rename carries
+ * them along.
+ */
+const ClassHeading: React.FC<{
+  schedule: Schedule;
+  onRename: (id: number, title: string) => Promise<boolean>;
+  onDelete: () => void;
+}> = ({schedule, onRename, onDelete}) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(schedule.title);
+  const [error, setError] = useState<string>();
+
+  if (!editing) {
+    return (
+      <div className="cs-card__head">
+        <h3 className="cs-subtitle">{schedule.title}</h3>
+        <div className="cs-row">
+          <Button
+            variant="ghost"
+            icon={<Pencil className="cs-icon" />}
+            aria-label={`Ubah nama ${schedule.title}`}
+            onClick={() => {
+              setDraft(schedule.title);
+              setError(undefined);
+              setEditing(true);
+            }}
+          >
+            Ubah nama
+          </Button>
+          <Button variant="ghost" icon={<Trash2 className="cs-icon" />} onClick={onDelete}>
+            Hapus
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="cs-addrow"
+      noValidate
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (schedule.id === undefined) return;
+        if (!draft.trim()) {
+          setError('Isi nama kelas.');
+          return;
+        }
+        if (await onRename(schedule.id, draft)) setEditing(false);
+      }}
+    >
+      <Field id={`sch-title-${schedule.id}`} label="Nama kelas" error={error}>
+        {(p) => (
+          <input
+            {...p}
+            className="cs-input"
+            type="text"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              if (error) setError(undefined);
+            }}
+            autoFocus
+          />
+        )}
+      </Field>
+      <Button type="submit" icon={<Check className="cs-icon" />}>
+        Simpan
+      </Button>
+      <Button variant="ghost" onClick={() => setEditing(false)}>
+        Batal
+      </Button>
+    </form>
+  );
+};
+
+/**
  * The teacher's name on a saved class, editable in place. Classes saved
  * before the field existed have none, so this is how they get one.
  */
@@ -201,6 +279,7 @@ export const ScheduleManagement: React.FC = () => {
     scheduleGuru,
     setScheduleGuru,
     updateScheduleGuru,
+    updateScheduleTitle,
     handleAddSchedule,
     handleDeleteSchedule,
     requestNotificationPermission,
@@ -415,16 +494,11 @@ export const ScheduleManagement: React.FC = () => {
             <ul className="cs-stack" aria-label="Jadwal tersimpan">
               {schedules.map((s) => (
                 <li key={s.id} className="cs-card cs-card--inset">
-                  <div className="cs-card__head">
-                    <h3 className="cs-subtitle">{s.title}</h3>
-                    <Button
-                      variant="ghost"
-                      icon={<Trash2 className="cs-icon" />}
-                      onClick={() => s.id && handleDeleteSchedule(s.id, s.title)}
-                    >
-                      Hapus
-                    </Button>
-                  </div>
+                  <ClassHeading
+                    schedule={s}
+                    onRename={updateScheduleTitle}
+                    onDelete={() => s.id && handleDeleteSchedule(s.id, s.title)}
+                  />
                   <p className="cs-muted">
                     Setiap {s.hari}, pukul {s.waktu} ·{' '}
                     {s.remindMinutesBefore === 0

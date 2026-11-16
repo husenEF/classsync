@@ -41,6 +41,9 @@ masuk ke kelas itu — dicentang langsung di formulir. Setiap santri masuk
 Jadwal atau dari *Kelola kelas & daftar santri* di layar presensi. Santri baru
 yang ditambahkan saat sebuah kelas dipilih otomatis masuk ke kelas itu.
 
+Nama kelas bisa diubah dari kartunya di Jadwal (*Ubah nama*). Presensi, santri
+dan draf Excel tetap ikut kelas itu, dan laporan memakai nama barunya.
+
 Di layar presensi, guru memilih kelas atau *Tanpa jadwal* untuk sesi lepas.
 Bila kelas dipilih, anggotanya tampil paling atas dan santri lain dilipat di
 bawah *Santri lain*. **Daftar santri tetap lengkap** — lipatan itu bisa dibuka
