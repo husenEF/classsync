@@ -1,15 +1,13 @@
 /**
  * Monthly reporting periods and their weekly blocks.
  *
- * A report covers the middle of one month to the middle of the next, in whole
- * Ahad-Sabtu weeks. A period starts on the Sunday that falls on the 15th-21st
- * of a month — there is exactly one — and runs until the day before the next
- * such Sunday. That is 28 or 35 days, so a period is four weeks, or five when
- * the calendar needs the extra one to stay mid-month:
+ * A report covers the 20th of one month to the 19th of the next. Inside it,
+ * weeks run Ahad-Sabtu; the first and last are cut at the period's edges, so
+ * a period has four to six week blocks:
  *
- *   September - Oktober 2026   20 Sep - 17 Okt   4 pekan
- *   Oktober - November 2026    18 Okt - 14 Nov   4 pekan
- *   November - Desember 2026   15 Nov - 19 Des   5 pekan
+ *   September - Oktober 2026   20 Sep - 19 Okt   20-26 Sep … 18-19 Okt    5 pekan
+ *   Oktober - November 2026    20 Okt - 19 Nov   20-24 Okt … 15-19 Nov    5 pekan
+ *   Maret - April 2027         20 Mar - 19 Apr   20 Mar … 18-19 Apr       6 pekan
  *
  * Periods join end to start, so every date is in exactly one period and one
  * week, whatever sessions exist.
@@ -39,8 +37,8 @@ const SHORT_MONTHS = [
   'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
 ] as const;
 
-/** A period never starts before this day of the month… */
-const BOUNDARY_FIRST_DAY = 15;
+/** A period starts on this day of the month and ends the day before it… */
+const PERIOD_START_DAY = 20;
 /** …and its weeks start on this weekday (0 = Ahad). */
 const WEEK_START_DAY = 0;
 
@@ -92,13 +90,11 @@ export function todayYMD(now: Date = new Date()): string {
 }
 
 /**
- * The day a new period starts in a month: the Sunday on the 15th-21st.
+ * The day a new period starts in a month: the 20th.
  * `monthIndex` is 0-based and may overflow (-1 is last December).
  */
 function periodBoundary(year: number, monthIndex: number): Date {
-  const first = new Date(year, monthIndex, BOUNDARY_FIRST_DAY);
-  const offset = (WEEK_START_DAY - first.getDay() + 7) % 7;
-  return new Date(first.getFullYear(), first.getMonth(), BOUNDARY_FIRST_DAY + offset);
+  return new Date(year, monthIndex, PERIOD_START_DAY);
 }
 
 /** The period that ends in the given month. `monthIndex` is 0-based and may overflow. */
@@ -146,34 +142,42 @@ function weekTitle(start: Date, end: Date): string {
   const endMonth = INDONESIAN_MONTHS[end.getMonth()];
   const startYear = start.getFullYear();
 
+  if (formatYMD(start) === formatYMD(end)) return `${start.getDate()} ${startMonth} ${startYear}`;
   return startMonth === endMonth
     ? `${start.getDate()}-${end.getDate()} ${startMonth} ${startYear}`
     : `${start.getDate()} ${startMonth}-${end.getDate()} ${endMonth} ${startYear}`;
 }
 
-/** The weekly blocks of a period: four, or five when the period is 35 days. */
+/**
+ * The weekly blocks of a period, Ahad to Sabtu. The first starts on the
+ * period's first day and the last stops on its last day, so those two can be
+ * shorter than a week.
+ */
 export function periodWeeks(period: Pick<ReportPeriod, 'start' | 'end'>): WeekBlock[] {
   const first = parseYMD(period.start);
-  if (!first) return [];
+  if (!first || period.end < period.start) return [];
 
   const weeks: WeekBlock[] = [];
-  for (let i = 0; ; i++) {
-    const start = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i * 7);
-    if (formatYMD(start) > period.end) break;
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  let start = first;
+  while (formatYMD(start) <= period.end) {
+    // Up to the Saturday that closes this Ahad-Sabtu week, or the period's end.
+    const toWeekEnd = (WEEK_START_DAY + 6 - start.getDay() + 7) % 7;
+    const weekEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate() + toWeekEnd);
+    const end = formatYMD(weekEnd) > period.end ? (parseYMD(period.end) as Date) : weekEnd;
 
     weeks.push({
-      id: i + 1,
+      id: weeks.length + 1,
       title: weekTitle(start, end),
       start: formatYMD(start),
       end: formatYMD(end),
-      isWeek1: i === 0,
+      isWeek1: weeks.length === 0,
     });
+    start = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
   }
   return weeks;
 }
 
-/** "20 Sep – 17 Okt 2026 · 4 pekan", shown under the period picker. */
+/** "20 Sep – 19 Okt 2026 · 5 pekan", shown under the period picker. */
 export function periodRangeLabel(period: Pick<ReportPeriod, 'start' | 'end'>): string {
   const start = parseYMD(period.start);
   const end = parseYMD(period.end);
