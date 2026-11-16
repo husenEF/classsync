@@ -112,6 +112,8 @@ interface AppContextType {
   setScheduleGuru: (val: string) => void;
   /** Set or clear the teacher's name on a saved class. */
   updateScheduleGuru: (id: number, guru: string) => Promise<void>;
+  /** Rename a class. Records and santri point at its id, so they follow. */
+  updateScheduleTitle: (id: number, title: string) => Promise<boolean>;
   /** Save a class, placing the named santri in it at the same time. */
   handleAddSchedule: (e: React.FormEvent, memberNames?: string[]) => Promise<boolean>;
   handleDeleteSchedule: (id: number, title: string) => Promise<void>;
@@ -1697,6 +1699,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateScheduleTitle = async (id: number, title: string): Promise<boolean> => {
+    const name = title.trim();
+    if (!name) {
+      showToast('Isi nama kelas.', 'error');
+      return false;
+    }
+    try {
+      await db.schedules.update(id, { title: name });
+      await loadSchedules();
+      showToast(`Nama kelas diubah menjadi ${name}.`, 'success');
+      return true;
+    } catch (err) {
+      console.error('Failed to rename class:', err);
+      showToast('Tidak dapat menyimpan nama kelas.', 'error');
+      return false;
+    }
+  };
+
   const handleDeleteSchedule = async (id: number, title: string) => {
     const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus jadwal "${title}"?`);
     if (!confirmDelete) return;
@@ -2194,6 +2214,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       scheduleGuru,
       setScheduleGuru,
       updateScheduleGuru,
+      updateScheduleTitle,
       handleAddSchedule,
       handleDeleteSchedule,
       requestNotificationPermission,
