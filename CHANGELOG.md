@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.7.0 — 2026-11-16
+
 ### Changed
 
 - **A report period now runs from the 20th of one month to the 19th of the
