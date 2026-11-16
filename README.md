@@ -66,7 +66,7 @@ di tombol Simpan tetap mencakup seluruh daftar, bukan hanya yang terlihat.
 
 ### Laporan WhatsApp
 
-Laporan disusun per periode bulanan — pertengahan bulan lalu sampai pertengahan
+Laporan disusun per periode bulanan — tanggal 20 bulan lalu sampai tanggal 19
 bulan ini — dipecah per pekan, siap disalin ke grup:
 
 ```
@@ -79,15 +79,16 @@ Laporan Kursus periode September - Oktober 2026
 * Peserta : Aan (H), Ubin (H)
 ```
 
-Pekan berjalan Ahad–Sabtu. Periode baru mulai pada hari Ahad yang jatuh tanggal
-15–21, dan berakhir sehari sebelum Ahad seperti itu di bulan berikutnya. Jadi
-satu periode berisi empat pekan, atau lima bila jaraknya 35 hari:
+Pekan berjalan Ahad–Sabtu. Tanggal 20 jarang jatuh pada hari Ahad, jadi pekan
+pertama dan terakhir dipotong di batas periode: pekan pertama mulai tanggal 20
+sampai hari Sabtu, pekan terakhir mulai hari Ahad sampai tanggal 19. Satu
+periode berisi empat sampai enam pekan:
 
 | Periode | Rentang | Pekan |
 |---|---|---|
-| September - Oktober 2026 | 20 Sep – 17 Okt | 4 |
-| Oktober - November 2026 | 18 Okt – 14 Nov | 4 |
-| November - Desember 2026 | 15 Nov – 19 Des | 5 |
+| September - Oktober 2026 | 20 Sep – 19 Okt | 20-26 Sep … 18-19 Okt · 5 |
+| Oktober - November 2026 | 20 Okt – 19 Nov | 20-24 Okt … 15-19 Nov · 5 |
+| Maret - April 2027 | 20 Mar – 19 Apr | 20 Mar … 18-19 Apr · 6 |
 
 Periode saling bersambung, jadi setiap tanggal masuk tepat satu periode dan satu
 pekan. Rentang dan jumlah pekannya tampil di bawah pilihan *Periode laporan*.

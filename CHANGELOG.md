@@ -17,6 +17,17 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Changed
+
+- **A report period now runs from the 20th of one month to the 19th of the
+  next.** In 2.6.0 it started on the Sunday that fell on the 15th–21st, so its
+  dates moved from month to month; *September - Oktober 2026* is now 20 Sep –
+  19 Okt. Weeks still run Ahad–Sabtu, and the first and last are cut at the
+  period's edges (*20-24 Oktober*, *15-19 November*), so a period has four to
+  six weeks.
+- Period names are unchanged, so Excel drafts saved in 2.6.0 still open under
+  the period of the same name.
+
 ## 2.6.0 — 2026-11-14
 
 ### Changed
