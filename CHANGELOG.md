@@ -28,6 +28,12 @@ release will refuse to run on an empty one.
 - Period names are unchanged, so Excel drafts saved in 2.6.0 still open under
   the period of the same name.
 
+### Added
+
+- **A class can be renamed.** *Ubah nama* on its card in Jadwal edits the name
+  in place. Its attendance, santri and Excel drafts stay with it, and reports
+  use the new name. An empty name is refused.
+
 ## 2.6.0 — 2026-11-14
 
 ### Changed

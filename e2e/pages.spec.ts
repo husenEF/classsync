@@ -100,6 +100,34 @@ test.describe('Jadwal', () => {
     await expect(pick.getByLabel('Ahmad Fauzi')).not.toBeChecked();
   });
 
+  test('a class can be renamed, and keeps its santri', async ({page}) => {
+    await openTab(page, 'Jadwal');
+    const pagi = page.locator('li.cs-card').filter({hasText: 'Ngaji Pagi'});
+    await pagi.getByLabel('Tambah santri').selectOption('Budi Santoso');
+    await pagi.getByRole('button', {name: 'Tambah', exact: true}).click();
+    await expect(pagi.getByRole('list', {name: 'Santri Ngaji Pagi'})).toContainText('Budi Santoso');
+
+    await page.getByRole('button', {name: 'Ubah nama Ngaji Pagi'}).click();
+    const nama = page.getByRole('textbox', {name: /Nama kelas/}).last();
+    await expect(nama).toHaveValue('Ngaji Pagi');
+
+    // An empty name is refused, and the class keeps the one it had.
+    await nama.fill('   ');
+    await page.getByRole('button', {name: 'Simpan', exact: true}).click();
+    await expect(page.getByText('Isi nama kelas.').first()).toBeVisible();
+
+    await nama.fill('Ngaji Subuh');
+    await page.getByRole('button', {name: 'Simpan', exact: true}).click();
+
+    const subuh = page.locator('li.cs-card').filter({has: page.getByRole('heading', {name: 'Ngaji Subuh'})});
+    await expect(subuh.getByRole('list', {name: 'Santri Ngaji Subuh'})).toContainText('Budi Santoso');
+    await expect(page.getByRole('heading', {name: 'Ngaji Pagi'})).toHaveCount(0);
+
+    await openTab(page, 'Presensi');
+    await expect(page.locator('.cs-group__btn').filter({hasText: 'Ngaji Subuh'})).toBeVisible();
+    await expect(page.locator('.cs-group__btn').filter({hasText: 'Ngaji Pagi'})).toHaveCount(0);
+  });
+
   test('santri placed in a class come first on its register', async ({page}) => {
     await openTab(page, 'Jadwal');
     const pagi = page.locator('li.cs-card').filter({hasText: 'Ngaji Pagi'});
