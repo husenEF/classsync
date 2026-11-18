@@ -50,14 +50,14 @@ const periodOf = (date: string) => {
 };
 
 describe('getRecordPeriod', () => {
-  // A period runs from the 20th of one month to the 19th of the next.
+  // A period is whole Ahad-Sabtu weeks, starting on the Sunday dated 13-19:
+  // the week that contains the 19th opens the next period.
   it.each([
-    ['2026-09-01', 'Agustus - September 2026', '2026-08-20', '2026-09-19', 5],
-    ['2026-10-01', 'September - Oktober 2026', '2026-09-20', '2026-10-19', 5],
-    ['2026-11-01', 'Oktober - November 2026', '2026-10-20', '2026-11-19', 5],
-    ['2026-12-01', 'November - Desember 2026', '2026-11-20', '2026-12-19', 5],
-    ['2027-01-01', 'Desember 2026 - Januari 2027', '2026-12-20', '2027-01-19', 5],
-    ['2027-04-01', 'Maret - April 2027', '2027-03-20', '2027-04-19', 6],
+    ['2026-09-01', 'Agustus - September 2026', '2026-08-16', '2026-09-12', 4],
+    ['2026-10-01', 'September - Oktober 2026', '2026-09-13', '2026-10-17', 5],
+    ['2026-11-01', 'Oktober - November 2026', '2026-10-18', '2026-11-14', 4],
+    ['2026-12-01', 'November - Desember 2026', '2026-11-15', '2026-12-12', 4],
+    ['2027-01-01', 'Desember 2026 - Januari 2027', '2026-12-13', '2027-01-16', 5],
   ])('puts %s in %s', (date, label, start, end, weekCount) => {
     const period = periodOf(date);
     expect(period.label).toBe(label);
@@ -66,11 +66,13 @@ describe('getRecordPeriod', () => {
     expect(periodWeeks(period)).toHaveLength(weekCount);
   });
 
-  it('changes period on the 20th, not a day before', () => {
-    expect(periodOf('2026-09-19').label).toBe('Agustus - September 2026');
-    expect(periodOf('2026-09-20').label).toBe('September - Oktober 2026');
-    expect(periodOf('2026-10-19').label).toBe('September - Oktober 2026');
-    expect(periodOf('2026-10-20').label).toBe('Oktober - November 2026');
+  it('changes period on the Sunday of the week with the 19th, not a day before', () => {
+    expect(periodOf('2026-09-12').label).toBe('Agustus - September 2026');
+    expect(periodOf('2026-09-13').label).toBe('September - Oktober 2026');
+    expect(periodOf('2026-11-14').label).toBe('Oktober - November 2026');
+    expect(periodOf('2026-11-15').label).toBe('November - Desember 2026');
+    // The 19th itself always opens the next period.
+    expect(periodOf('2026-11-19').label).toBe('November - Desember 2026');
   });
 
   it('keys a period by the month it ends in', () => {
@@ -103,12 +105,18 @@ describe('getRecordPeriod', () => {
       expect(covering, `${date} is in no week, or in two`).toHaveLength(1);
 
       if (period.key !== previous.key) {
-        // Periods join end to start, and a new one opens on the 20th.
+        // Periods join end to start; a new one opens on the Sunday dated
+        // 13-19 and ends on the Saturday dated 12-18, before the 19th.
         const start = parseYMD(period.start) as Date;
+        const end = parseYMD(period.end) as Date;
         const dayBefore = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
         expect(formatYMD(dayBefore)).toBe(previous.end);
-        expect(start.getDate()).toBe(20);
-        expect((parseYMD(period.end) as Date).getDate()).toBe(19);
+        expect(start.getDay()).toBe(0);
+        expect(start.getDate()).toBeGreaterThanOrEqual(13);
+        expect(start.getDate()).toBeLessThanOrEqual(19);
+        expect(end.getDay()).toBe(6);
+        expect(end.getDate()).toBeGreaterThanOrEqual(12);
+        expect(end.getDate()).toBeLessThanOrEqual(18);
         previous = period;
       }
     }
@@ -117,86 +125,62 @@ describe('getRecordPeriod', () => {
 
 describe('currentReportPeriod', () => {
   it('is the period today falls in', () => {
-    expect(currentReportPeriod(new Date(2026, 10, 19, 23, 30)).label).toBe('Oktober - November 2026');
-    expect(currentReportPeriod(new Date(2026, 10, 20, 0, 30)).label).toBe('November - Desember 2026');
+    expect(currentReportPeriod(new Date(2026, 10, 14, 23, 30)).label).toBe('Oktober - November 2026');
+    expect(currentReportPeriod(new Date(2026, 10, 15, 0, 30)).label).toBe('November - Desember 2026');
   });
 });
 
 describe('periodWeeks', () => {
-  const sepOkt = periodOf('2026-10-01');
+  const oktNov = periodOf('2026-11-01');
 
-  it('runs Ahad to Sabtu, cut at the start and end of the period', () => {
-    expect(periodWeeks(sepOkt).map((w) => w.title)).toEqual([
-      '20-26 September 2026',
-      '27 September-3 Oktober 2026',
-      '4-10 Oktober 2026',
-      '11-17 Oktober 2026',
-      '18-19 Oktober 2026',
-    ]);
-    expect(periodWeeks(periodOf('2026-11-01')).map((w) => w.title)).toEqual([
-      '20-24 Oktober 2026',
+  it('runs whole Ahad-Sabtu weeks from the start of the period to its end', () => {
+    expect(periodWeeks(oktNov).map((w) => w.title)).toEqual([
+      '18-24 Oktober 2026',
       '25-31 Oktober 2026',
       '1-7 November 2026',
       '8-14 November 2026',
-      '15-19 November 2026',
     ]);
   });
 
   it('numbers the blocks and marks the first', () => {
-    const weeks = periodWeeks(sepOkt);
-    expect(weeks.map((w) => w.id)).toEqual([1, 2, 3, 4, 5]);
-    expect(weeks.map((w) => w.isWeek1)).toEqual([true, false, false, false, false]);
-    expect(weeks[0]).toMatchObject({start: '2026-09-20', end: '2026-09-26'});
-    expect(weeks[4]).toMatchObject({start: '2026-10-18', end: '2026-10-19'});
+    const weeks = periodWeeks(oktNov);
+    expect(weeks.map((w) => w.id)).toEqual([1, 2, 3, 4]);
+    expect(weeks.map((w) => w.isWeek1)).toEqual([true, false, false, false]);
+    expect(weeks[0]).toMatchObject({start: '2026-10-18', end: '2026-10-24'});
   });
 
-  it('starts every week but the first on Ahad and ends every week but the last on Sabtu', () => {
-    for (let m = 0; m < 48; m++) {
-      const weeks = periodWeeks(periodOf(formatYMD(new Date(2025, m, 1))));
-      weeks.slice(1).forEach((w) => expect((parseYMD(w.start) as Date).getDay(), w.start).toBe(0));
-      weeks.slice(0, -1).forEach((w) => expect((parseYMD(w.end) as Date).getDay(), w.end).toBe(6));
-    }
+  it('adds a fifth week when the period is 35 days', () => {
+    const weeks = periodWeeks(periodOf('2026-10-01'));
+    expect(weeks).toHaveLength(5);
+    expect(weeks[0].title).toBe('13-19 September 2026');
+    expect(weeks[4].title).toBe('11-17 Oktober 2026');
   });
 
-  it('gives a one-day week a single date for its title', () => {
-    const weeks = periodWeeks(periodOf('2027-04-01'));
-    expect(weeks).toHaveLength(6);
-    expect(weeks[0]).toMatchObject({title: '20 Maret 2027', start: '2027-03-20', end: '2027-03-20'});
-    expect(weeks[5].title).toBe('18-19 April 2027');
-  });
-
-  it('is four weeks when the period is exactly four Ahad-Sabtu weeks', () => {
-    // 20 Feb 2022 was a Sunday and February had 28 days.
-    const weeks = periodWeeks(periodOf('2022-03-01'));
-    expect(weeks.map((w) => w.title)).toEqual([
-      '20-26 Februari 2022',
-      '27 Februari-5 Maret 2022',
-      '6-12 Maret 2022',
-      '13-19 Maret 2022',
-    ]);
-  });
-
-  it('is only ever four to six weeks', () => {
+  it('is only ever four or five whole Ahad-Sabtu weeks', () => {
     for (let m = 0; m < 120; m++) {
-      const count = periodWeeks(periodOf(formatYMD(new Date(2020, m, 1)))).length;
-      expect([4, 5, 6]).toContain(count);
+      const weeks = periodWeeks(periodOf(formatYMD(new Date(2020, m, 1))));
+      expect([4, 5]).toContain(weeks.length);
+      for (const w of weeks) {
+        expect((parseYMD(w.start) as Date).getDay(), w.start).toBe(0);
+        expect((parseYMD(w.end) as Date).getDay(), w.end).toBe(6);
+      }
     }
   });
 
   it('titles a week that crosses the new year with the year it starts in', () => {
     const weeks = periodWeeks(periodOf('2027-01-01'));
-    expect(weeks[1].title).toBe('27 Desember-2 Januari 2026');
-    expect(weeks[1].end).toBe('2027-01-02');
+    expect(weeks[2].title).toBe('27 Desember-2 Januari 2026');
+    expect(weeks[2].end).toBe('2027-01-02');
   });
 });
 
 describe('periodRangeLabel', () => {
   it('shows the dates and the number of weeks', () => {
-    expect(periodRangeLabel(periodOf('2026-10-01'))).toBe('20 Sep – 19 Okt 2026 · 5 pekan');
-    expect(periodRangeLabel(periodOf('2027-04-01'))).toBe('20 Mar – 19 Apr 2027 · 6 pekan');
+    expect(periodRangeLabel(periodOf('2026-11-01'))).toBe('18 Okt – 14 Nov 2026 · 4 pekan');
+    expect(periodRangeLabel(periodOf('2026-10-01'))).toBe('13 Sep – 17 Okt 2026 · 5 pekan');
   });
 
   it('names both years when the period crosses one', () => {
-    expect(periodRangeLabel(periodOf('2027-01-01'))).toBe('20 Des 2026 – 19 Jan 2027 · 5 pekan');
+    expect(periodRangeLabel(periodOf('2027-01-01'))).toBe('13 Des 2026 – 16 Jan 2027 · 5 pekan');
   });
 });
