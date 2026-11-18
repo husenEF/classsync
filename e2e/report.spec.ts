@@ -178,3 +178,43 @@ test("the teacher, and a reason for Lainnya, reach both report formats", async (
   expect(rapi).toContain('Lainnya (1): Aan - jemputan telat');
   expect(rapi).toContain('Total pekan ini: 1H / 0S / 0I / 0A / 1E');
 });
+
+test('the session list can be grouped by class, A–Z', async ({page}) => {
+  // Day order puts Tahfidz Sore (Senin) before Iqra (Rabu); A–Z does not.
+  await seed(page, {
+    roster: ['Ubin', 'Aan'],
+    schedules: [
+      {title: 'Tahfidz Sore', hari: 'Senin', waktu: '16:00'},
+      {title: 'Iqra', hari: 'Rabu', waktu: '07:00'},
+    ],
+  });
+
+  const sessions: Array<[string | null, string, string]> = [
+    ['Tahfidz Sore', '2026-09-07', 'Ubin'],
+    ['Iqra', '2026-09-09', 'Aan'],
+    [null, '2026-09-10', 'Ubin'],
+  ];
+  for (const [kelas, tanggal, who] of sessions) {
+    if (kelas) await page.locator('.cs-group__btn').filter({hasText: kelas}).click();
+    await page.getByLabel('Tanggal kegiatan').fill(tanggal);
+    await mark(page, who, 'Hadir');
+    await page.getByRole('button', {name: /Simpan presensi/}).click();
+    await expect(savedConfirmation(page)).toBeVisible();
+    await page.getByRole('button', {name: 'Catat sesi lain'}).click();
+  }
+
+  await page.getByRole('button', {name: /Laporan/}).click();
+  await page.locator('#report_period').selectOption({label: 'Agustus - September 2026'});
+
+  // By date, newest first, each row naming its class.
+  const dates = page.locator('.cs-session__date');
+  await expect(dates).toHaveText([/^Tanpa kelas · /, /^Iqra · /, /^Tahfidz Sore · /]);
+
+  await page.getByRole('button', {name: /^Kelas/}).click();
+  await expect(page.locator('.cs-scroll h3')).toHaveText([/^Iqra/, /^Tahfidz Sore/, /^Tanpa kelas/]);
+  await expect(page.getByRole('region', {name: 'Sesi Iqra'})).toContainText('Aan');
+
+  // The toggle is only for the mixed list; one class is already one group.
+  await page.locator('#report_schedule_filter').selectOption({label: 'Iqra (Rabu)'});
+  await expect(page.getByRole('button', {name: /^Kelas/})).toHaveCount(0);
+});

@@ -17,6 +17,23 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Added
+
+- **The Laporan session list can be grouped by class.** With *Semua kelas*
+  picked, *Urutkan sesi* switches between *Tanggal* (newest first, each row
+  naming its class) and *Kelas* (grouped under each class A–Z, *Tanpa kelas*
+  last). The choice is remembered on the phone; the report text keeps its
+  order.
+
+### Changed
+
+- **Editing a session uses the Presensi register.** *Ubah* in Riwayat used to
+  offer only a date, a class and a comma-separated list of names, so marks,
+  reasons and the teacher's mark could not be changed. It now opens the session
+  on the register it was made on, with all of those, and *Simpan perubahan*
+  saves it back. Changing its date or class moves it; moving onto a session
+  already saved there asks before replacing it.
+
 ## 2.7.1 — 2026-11-18
 
 ### Changed

@@ -102,6 +102,11 @@ kelas, laporan dikelompokkan per kelas — satu judul di atas, lalu bagian
 `*Nama Kelas*` untuk tiap kelas dengan format pekan yang sama, dan *Tanpa
 kelas* paling akhir. Sesi yang pindah hari tetap masuk bagian kelasnya.
 
+Daftar sesi yang dipilih untuk laporan bisa diurutkan saat *Semua kelas*
+dipilih: *Tanggal* (terbaru di atas, nama kelas tertulis di tiap sesi) atau
+*Kelas* (dikelompokkan per nama kelas A–Z, *Tanpa kelas* paling akhir). Pilihan
+itu diingat di HP ini dan tidak mengubah urutan teks laporan.
+
 Di dalam laporan yang dikelompokkan, setiap bagian kelas memakai format yang
 persis sama — termasuk pekan kosong yang tetap ditulis *"Tgl Kursus : -"*,
 supaya koordinator membaca bentuk yang sama di setiap kelas.
@@ -118,6 +123,10 @@ santri yang memang tidak tercatat sama sekali.
 ### Lainnya
 
 - **Riwayat** — menengok, mengubah, atau menghapus sesi yang sudah tersimpan.
+  *Ubah* membuka sesi itu di layar Presensi, lengkap dengan tanda tiap santri,
+  keterangan, status guru, dan jamnya, lalu *Simpan perubahan* menyimpannya
+  kembali. Mengganti tanggal atau kelasnya memindahkan sesi itu; bila di sana
+  sudah ada sesi, aplikasi bertanya dulu sebelum menggantinya.
 - **Jadwal** — kelas mingguan berulang, lengkap dengan pengingat dan ekspor ke
   kalender HP.
 - **Sinkron HP** — memindahkan data antar perangkat lewat QR code atau tautan,

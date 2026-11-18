@@ -6,6 +6,7 @@ import { isTooLongForWhatsApp, shareToWhatsApp } from "../utils/share";
 import { Button } from "../ui/Button";
 import { formatIndonesianDate } from "../utils/date";
 import { periodRangeLabel } from "../utils/period";
+import { NO_CLASS_TITLE, sessionsByClassName } from "../utils/report";
 import { db, ExcelReportRecord } from "../db";
 import {
   AlertCircle,
@@ -92,6 +93,72 @@ export const ReportGenerator: React.FC = () => {
         .filter((st) => st.active && st.scheduleId === excelClassId)
         .map((st) => st.name)
     : [];
+
+  /*
+   * How the session list is ordered when every class is shown: newest first,
+   * or grouped under each class A–Z. Remembered on this phone only, and the
+   * list still works when storage is unavailable.
+   */
+  const [sessionSort, setSessionSort] = useState<"tanggal" | "kelas">(() => {
+    try {
+      return localStorage.getItem("report_session_sort") === "kelas"
+        ? "kelas"
+        : "tanggal";
+    } catch {
+      return "tanggal";
+    }
+  });
+  const chooseSessionSort = (sort: "tanggal" | "kelas") => {
+    setSessionSort(sort);
+    try {
+      localStorage.setItem("report_session_sort", sort);
+    } catch {
+      /* the choice just isn't remembered */
+    }
+  };
+  const showingAllClasses = reportScheduleFilter === "all";
+  const classTitleOf = (scheduleId: number | undefined) =>
+    schedules.find((s) => s.id === scheduleId)?.title ?? NO_CLASS_TITLE;
+
+  /* One session in the picker. With every class shown in date order, the
+     class is named on the row, since the list mixes them. */
+  const renderSessionRow = (
+    rec: (typeof filteredRecordsForReport)[number],
+    withClass: boolean,
+  ) => {
+    const isSelected = reportSelectedRecordIds.includes(rec.id!);
+    return (
+      /* A real checkbox: this was a div with an onClick, so it could not be
+         reached or operated by keyboard and announced as nothing at all. */
+      <label
+        key={rec.id}
+        className={`cs-session${isSelected ? " is-selected" : ""}`}
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => {
+            if (rec.id) {
+              setReportSelectedRecordIds((prev) =>
+                prev.includes(rec.id!)
+                  ? prev.filter((x) => x !== rec.id)
+                  : [...prev, rec.id!],
+              );
+            }
+          }}
+        />
+        <span className="cs-session__text">
+          <span className="cs-session__date">
+            {withClass ? `${classTitleOf(rec.scheduleId)} · ` : ""}
+            {formatIndonesianDate(rec.tanggal)}
+          </span>
+          <span className="cs-session__names">
+            Hadir ({rec.peserta.length}): {rec.peserta.join(", ")}
+          </span>
+        </span>
+      </label>
+    );
+  };
 
   // Sub-tabs state: 'whatsapp' (original) or 'excel' (new)
   const [reportMode, setReportMode] = useState<"whatsapp" | "excel">(
@@ -813,45 +880,75 @@ export const ReportGenerator: React.FC = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="cs-scroll">
-                      {filteredRecordsForReport.map((rec) => {
-                        const isSelected = reportSelectedRecordIds.includes(
-                          rec.id!,
-                        );
-                        return (
-                          /* A real checkbox: this was a div with an onClick,
-                             so it could not be reached or operated by keyboard
-                             and announced as nothing at all. */
-                          <label
-                            key={rec.id}
-                            className={`cs-session${isSelected ? " is-selected" : ""}`}
+                    <>
+                      {showingAllClasses ? (
+                        <div className="cs-field">
+                          <p
+                            className="cs-field__label"
+                            id="session_sort_label"
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                if (rec.id) {
-                                  setReportSelectedRecordIds((prev) =>
-                                    prev.includes(rec.id!)
-                                      ? prev.filter((x) => x !== rec.id)
-                                      : [...prev, rec.id!],
-                                  );
-                                }
-                              }}
-                            />
-                            <span className="cs-session__text">
-                              <span className="cs-session__date">
-                                {formatIndonesianDate(rec.tanggal)}
-                              </span>
-                              <span className="cs-session__names">
-                                Hadir ({rec.peserta.length}):{" "}
-                                {rec.peserta.join(", ")}
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                            Urutkan sesi
+                          </p>
+                          <ul
+                            className="cs-groups"
+                            aria-labelledby="session_sort_label"
+                          >
+                            <li className="cs-group">
+                              <button
+                                type="button"
+                                className="cs-group__btn"
+                                aria-pressed={sessionSort === "tanggal"}
+                                onClick={() => chooseSessionSort("tanggal")}
+                              >
+                                Tanggal
+                                <span className="cs-group__when">
+                                  Terbaru di atas
+                                </span>
+                              </button>
+                            </li>
+                            <li className="cs-group">
+                              <button
+                                type="button"
+                                className="cs-group__btn"
+                                aria-pressed={sessionSort === "kelas"}
+                                onClick={() => chooseSessionSort("kelas")}
+                              >
+                                Kelas
+                                <span className="cs-group__when">
+                                  Dikelompokkan A–Z
+                                </span>
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      <div className="cs-scroll">
+                        {showingAllClasses && sessionSort === "kelas"
+                          ? sessionsByClassName(
+                              filteredRecordsForReport,
+                              schedules,
+                            ).map((group) => (
+                              <section
+                                key={group.title}
+                                aria-label={`Sesi ${group.title}`}
+                              >
+                                <h3 className="cs-label">
+                                  {group.title}
+                                  <span className="cs-label__count">
+                                    {group.records.length} sesi
+                                  </span>
+                                </h3>
+                                {group.records.map((rec) =>
+                                  renderSessionRow(rec, false),
+                                )}
+                              </section>
+                            ))
+                          : filteredRecordsForReport.map((rec) =>
+                              renderSessionRow(rec, showingAllClasses),
+                            )}
+                      </div>
+                    </>
                   )}
 
                   <div className="cs-field">

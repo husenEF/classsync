@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Check, ChevronDown, ChevronUp, Eraser, Plus, Save, Search, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Eraser, Pencil, Plus, Save, Search, Trash2, UserPlus, Users, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { formatIndonesianDate } from "../utils/date";
 import { STATUS_CODE, STATUS_LABEL, STATUS_ORDER } from "../styles/palette";
@@ -98,7 +98,11 @@ export const AttendanceInput: React.FC = () => {
     cancelOverwrite,
     schedules,
     setActiveTab,
+    editingRecord,
+    cancelEditing,
   } = useApp();
+  const editing = editingRecord !== null;
+  const editingClass = schedules.find((s) => s.id === editingRecord?.scheduleId);
 
   const [newName, setNewName] = useState("");
   const [newNameError, setNewNameError] = useState<string | undefined>();
@@ -118,13 +122,14 @@ export const AttendanceInput: React.FC = () => {
    * Picking a class moves the date to that class's latest day — today when
    * it is that weekday, otherwise last week's — but only while the date is
    * still today's default. A date the teacher chose on purpose (a class moved
-   * to another day) is theirs, and is left alone.
+   * to another day) is theirs, and is left alone — as is the date of a saved
+   * session being edited.
    */
   const pickClass = (id: number | undefined) => {
     setSelectedScheduleId(id);
     const hari = schedules.find((s) => s.id === id)?.hari;
     const today = formatYMD(new Date());
-    if (!hari || tanggalInput !== today) return;
+    if (editing || !hari || tanggalInput !== today) return;
     const latest = getWeekdayOccurrences(hari).find((o) => o.dateStr <= today);
     if (latest) setTanggalInput(latest.dateStr);
   };
@@ -270,6 +275,31 @@ export const AttendanceInput: React.FC = () => {
       className="cs-page cs-page--split"
     >
       <div className="cs-col cs-col--aside">
+        {/* A saved session opened from Riwayat. It is edited here, on the same
+            register it was made on, and saved back over itself. */}
+        {editingRecord ? (
+          <section className="cs-card" aria-label="Mengubah sesi">
+            <p className="cs-label">
+              Mengubah sesi
+              <Pencil className="cs-icon" aria-hidden="true" />
+            </p>
+            <div className="cs-today">
+              <span className="cs-today__date">
+                {formatIndonesianDate(editingRecord.tanggal)}
+              </span>
+            </div>
+            <p className="cs-muted">
+              {editingClass ? editingClass.title : "Tanpa jadwal"}. Ubah tanggal
+              atau kelasnya untuk memindahkan sesi ini.
+            </p>
+            <div className="cs-row">
+              <Button variant="ghost" icon={<X className="cs-icon" />} onClick={cancelEditing}>
+                Batal ubah
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
         {/* What was just saved — shown in place, so saving does not move the
             teacher to a screen they did not ask for. */}
         {lastSaved ? (
@@ -856,7 +886,7 @@ export const AttendanceInput: React.FC = () => {
             icon={<Save className="cs-icon" />}
             disabled={tally.marked === 0 && !guruAbsent}
           >
-            Simpan presensi
+            {editing ? "Simpan perubahan" : "Simpan presensi"}
           </Button>
 
           <p className="cs-muted" aria-live="polite">
@@ -875,7 +905,11 @@ export const AttendanceInput: React.FC = () => {
           the browser's unstyled "are you sure". */}
       <ConfirmDialog
         open={pendingOverwrite !== null}
-        title="Perbarui presensi hari ini?"
+        title={
+          pendingOverwrite?.editingId !== undefined
+            ? "Pindahkan ke sesi yang sudah ada?"
+            : "Perbarui presensi hari ini?"
+        }
         body={
           <>
             <p>
@@ -883,15 +917,20 @@ export const AttendanceInput: React.FC = () => {
               {pendingOverwrite
                 ? formatIndonesianDate(pendingOverwrite.tanggal)
                 : ""}{" "}
+              {pendingOverwrite?.editingId !== undefined ? "di kelas itu, " : ""}
               berisi {pendingOverwrite?.existingCount ?? 0} santri hadir.
             </p>
             <p>
-              Catatan itu akan diganti dengan yang baru (
+              {pendingOverwrite?.editingId !== undefined
+                ? "Catatan itu akan diganti dengan sesi yang dipindahkan ("
+                : "Catatan itu akan diganti dengan yang baru ("}
               {pendingOverwrite?.peserta.length ?? 0} hadir).
             </p>
           </>
         }
-        confirmLabel="Perbarui presensi"
+        confirmLabel={
+          pendingOverwrite?.editingId !== undefined ? "Pindahkan & ganti" : "Perbarui presensi"
+        }
         cancelLabel="Jangan ganti"
         onCancel={cancelOverwrite}
         onConfirm={() => void confirmOverwrite()}

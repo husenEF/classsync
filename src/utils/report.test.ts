@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {buildWhatsAppReport, buildWhatsAppReportCompact} from './report';
+import {buildWhatsAppReport, buildWhatsAppReportCompact, NO_CLASS_TITLE, sessionsByClassName} from './report';
 
 const weeks = [
   {title: '26 Oktober-1 November 2026', start: '2026-10-26', end: '2026-11-01'},
@@ -162,5 +162,49 @@ describe('buildWhatsAppReportCompact', () => {
     const text = compact([lepas]);
     expect(text).not.toContain('Kelas:');
     expect(text).toContain('Hadir (1): Nabila');
+  });
+});
+
+describe('sessionsByClassName', () => {
+  const titles = (groups: {title: string}[]) => groups.map((g) => g.title);
+  const named = [
+    {id: 1, title: 'tahfidz Sore'},
+    {id: 2, title: 'Iqra'},
+    {id: 3, title: 'Ngaji Pagi'},
+  ];
+
+  it('puts the classes A–Z, whatever their case', () => {
+    const records = [
+      {tanggal: '2026-11-10', scheduleId: 1},
+      {tanggal: '2026-11-09', scheduleId: 3},
+      {tanggal: '2026-11-08', scheduleId: 2},
+    ];
+    expect(titles(sessionsByClassName(records, named))).toEqual(['Iqra', 'Ngaji Pagi', 'tahfidz Sore']);
+  });
+
+  it('puts sessions with no class, or a deleted one, last under Tanpa kelas', () => {
+    const records = [
+      {tanggal: '2026-11-10'},
+      {tanggal: '2026-11-09', scheduleId: 99},
+      {tanggal: '2026-11-08', scheduleId: 2},
+    ];
+    const groups = sessionsByClassName(records, named);
+    expect(titles(groups)).toEqual(['Iqra', NO_CLASS_TITLE]);
+    expect(groups[1].records.map((r) => r.tanggal)).toEqual(['2026-11-10', '2026-11-09']);
+  });
+
+  it('keeps the order it was given inside each class', () => {
+    const records = [
+      {tanggal: '2026-11-11', scheduleId: 3},
+      {tanggal: '2026-11-10', scheduleId: 2},
+      {tanggal: '2026-11-04', scheduleId: 3},
+    ];
+    const pagiGroup = sessionsByClassName(records, named).find((g) => g.title === 'Ngaji Pagi');
+    expect(pagiGroup?.records.map((r) => r.tanggal)).toEqual(['2026-11-11', '2026-11-04']);
+  });
+
+  it('leaves out a class with no sessions', () => {
+    expect(sessionsByClassName([{tanggal: '2026-11-10', scheduleId: 3}], named)).toHaveLength(1);
+    expect(sessionsByClassName([], named)).toEqual([]);
   });
 });
