@@ -13,7 +13,6 @@ import {formatIndonesianDate} from '../utils/date';
 import {STATUS_LABEL, STATUS_ORDER, type StatusKey} from '../styles/palette';
 import {nameKey, reasonFor, tally} from '../roster';
 import {Button} from '../ui/Button';
-import {Field} from '../ui/Field';
 import {ConfirmDialog} from '../ui/ConfirmDialog';
 
 /** Status counts for a session, whichever shape it was saved in. */
@@ -32,16 +31,7 @@ export const AttendanceHistory: React.FC = () => {
     loading,
     schedules,
     setActiveTab,
-    editingId,
-    editingNames,
-    setEditingNames,
-    editingTanggal,
-    setEditingTanggal,
-    editingScheduleId,
-    setEditingScheduleId,
     startEditing,
-    cancelEditing,
-    saveEditedRecord,
     handleDeleteRecord,
     handleClearAllRecords,
     handleFullBackupExport,
@@ -159,160 +149,94 @@ export const AttendanceHistory: React.FC = () => {
         {records.map((record) => {
           const counts = summarise(record);
           const linked = schedules.find((s) => s.id === record.scheduleId);
-          const isEditing = editingId === record.id;
 
           return (
             <section key={record.id} className="cs-card">
-              {isEditing ? (
-                <>
-                  <h3 className="cs-subtitle">Ubah sesi</h3>
+              <div className="cs-card__head">
+                <h3 className="cs-subtitle">{formatIndonesianDate(record.tanggal)}</h3>
+                <label className="cs-check">
+                  <input
+                    type="checkbox"
+                    checked={record.id ? selectedRecordIds.includes(record.id) : false}
+                    onChange={() => record.id && handleToggleSelectRecord(record.id)}
+                  />
+                  <span>Pilih untuk ekspor</span>
+                </label>
+              </div>
 
-                  <Field id={`edit-date-${record.id}`} label="Tanggal kegiatan">
-                    {(p) => (
-                      <input
-                        {...p}
-                        className="cs-input"
-                        type="date"
-                        value={editingTanggal}
-                        onChange={(e) => setEditingTanggal(e.target.value)}
-                      />
-                    )}
-                  </Field>
+              {linked || record.waktu ? (
+                <p className="cs-muted">
+                  {linked
+                    ? `${linked.title} — setiap ${linked.hari}, ${linked.waktu}`
+                    : "Sesi lepas"}
+                  {record.waktu && record.waktu !== linked?.waktu
+                    ? ` · sesi ini pukul ${record.waktu}`
+                    : ""}
+                </p>
+              ) : null}
 
-                  <Field id={`edit-sched-${record.id}`} label="Jadwal rutin" optional>
-                    {(p) => (
-                      <select
-                        {...p}
-                        className="cs-select"
-                        value={editingScheduleId ?? ''}
-                        onChange={(e) =>
-                          setEditingScheduleId(e.target.value ? Number(e.target.value) : undefined)
-                        }
-                      >
-                        <option value="">Tidak terhubung jadwal</option>
-                        {schedules.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.title} — setiap {s.hari}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </Field>
+              {record.guruStatus ? (
+                <p className="cs-muted">
+                  <strong>Guru{linked?.guru ? ` (${linked.guru})` : ''}:</strong>{' '}
+                  {STATUS_LABEL[record.guruStatus]}
+                  {record.guruStatus === 'etc' && record.guruKeterangan
+                    ? ` — ${record.guruKeterangan}`
+                    : ''}
+                </p>
+              ) : null}
 
-                  <Field
-                    id={`edit-names-${record.id}`}
-                    label="Santri yang hadir"
-                    hint="Pisahkan dengan koma."
-                  >
-                    {(p) => (
-                      <textarea
-                        {...p}
-                        className="cs-textarea"
-                        rows={3}
-                        value={editingNames}
-                        onChange={(e) => setEditingNames(e.target.value)}
-                      />
-                    )}
-                  </Field>
+              <ul className="cs-tally" aria-label="Ringkasan kehadiran">
+                {STATUS_ORDER.filter((k) => counts[k] > 0).map((k) => (
+                  <li key={k} className={`cs-chip cs-chip--${k}`}>
+                    {STATUS_LABEL[k]} {counts[k]}
+                  </li>
+                ))}
+              </ul>
 
-                  <div className="cs-row">
-                    <Button variant="primary" onClick={() => record.id && saveEditedRecord(record.id)}>
-                      Simpan perubahan
-                    </Button>
-                    <Button variant="ghost" onClick={cancelEditing}>
-                      Batal
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="cs-card__head">
-                    <h3 className="cs-subtitle">{formatIndonesianDate(record.tanggal)}</h3>
-                    <label className="cs-check">
-                      <input
-                        type="checkbox"
-                        checked={record.id ? selectedRecordIds.includes(record.id) : false}
-                        onChange={() => record.id && handleToggleSelectRecord(record.id)}
-                      />
-                      <span>Pilih untuk ekspor</span>
-                    </label>
-                  </div>
+              <p className="cs-names">
+                {record.peserta.length > 0 ? record.peserta.join(', ') : 'Tidak ada yang hadir.'}
+              </p>
 
-                  {linked || record.waktu ? (
-                    <p className="cs-muted">
-                      {linked
-                        ? `${linked.title} — setiap ${linked.hari}, ${linked.waktu}`
-                        : "Sesi lepas"}
-                      {record.waktu && record.waktu !== linked?.waktu
-                        ? ` · sesi ini pukul ${record.waktu}`
-                        : ""}
-                    </p>
-                  ) : null}
+              {record.statuses
+                ? STATUS_ORDER.filter((k) => k !== 'hadir').map((k) => {
+                    // An absent santri is by definition not in `peserta`,
+                    // so their display name has to come from the roster;
+                    // looking in peserta always fell through to the raw
+                    // lower-cased key ("budi santoso").
+                    const names = Object.entries(record.statuses ?? {})
+                      .filter(([, v]) => v === k)
+                      .map(([key]) => {
+                        const student = students.find((st) => st.nameKey === key);
+                        const inRecord = record.peserta.find((n) => nameKey(n) === key);
+                        const name = student?.name ?? inRecord ?? key;
+                        const reason = k === 'etc' ? reasonFor(record.keterangan, key) : '';
+                        return reason ? `${name} — ${reason}` : name;
+                      });
+                    if (names.length === 0) return null;
+                    return (
+                      <p key={k} className="cs-muted">
+                        <strong>{STATUS_LABEL[k]}:</strong> {names.join(', ')}
+                      </p>
+                    );
+                  })
+                : null}
 
-                  {record.guruStatus ? (
-                    <p className="cs-muted">
-                      <strong>Guru{linked?.guru ? ` (${linked.guru})` : ''}:</strong>{' '}
-                      {STATUS_LABEL[record.guruStatus]}
-                      {record.guruStatus === 'etc' && record.guruKeterangan
-                        ? ` — ${record.guruKeterangan}`
-                        : ''}
-                    </p>
-                  ) : null}
-
-                  <ul className="cs-tally" aria-label="Ringkasan kehadiran">
-                    {STATUS_ORDER.filter((k) => counts[k] > 0).map((k) => (
-                      <li key={k} className={`cs-chip cs-chip--${k}`}>
-                        {STATUS_LABEL[k]} {counts[k]}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <p className="cs-names">
-                    {record.peserta.length > 0 ? record.peserta.join(', ') : 'Tidak ada yang hadir.'}
-                  </p>
-
-                  {record.statuses
-                    ? STATUS_ORDER.filter((k) => k !== 'hadir').map((k) => {
-                        // An absent santri is by definition not in `peserta`,
-                        // so their display name has to come from the roster;
-                        // looking in peserta always fell through to the raw
-                        // lower-cased key ("budi santoso").
-                        const names = Object.entries(record.statuses ?? {})
-                          .filter(([, v]) => v === k)
-                          .map(([key]) => {
-                            const student = students.find((st) => st.nameKey === key);
-                            const inRecord = record.peserta.find((n) => nameKey(n) === key);
-                            const name = student?.name ?? inRecord ?? key;
-                            const reason = k === 'etc' ? reasonFor(record.keterangan, key) : '';
-                            return reason ? `${name} — ${reason}` : name;
-                          });
-                        if (names.length === 0) return null;
-                        return (
-                          <p key={k} className="cs-muted">
-                            <strong>{STATUS_LABEL[k]}:</strong> {names.join(', ')}
-                          </p>
-                        );
-                      })
-                    : null}
-
-                  <div className="cs-row">
-                    <Button
-                      variant="secondary"
-                      icon={<Pencil className="cs-icon" />}
-                      onClick={() => startEditing(record)}
-                    >
-                      Ubah
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      icon={<Trash2 className="cs-icon" />}
-                      onClick={() => record.id && handleDeleteRecord(record.id, record.tanggal)}
-                    >
-                      Hapus
-                    </Button>
-                  </div>
-                </>
-              )}
+              <div className="cs-row">
+                <Button
+                  variant="secondary"
+                  icon={<Pencil className="cs-icon" />}
+                  onClick={() => startEditing(record)}
+                >
+                  Ubah
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 className="cs-icon" />}
+                  onClick={() => record.id && handleDeleteRecord(record.id, record.tanggal)}
+                >
+                  Hapus
+                </Button>
+              </div>
             </section>
           );
         })}

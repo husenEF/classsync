@@ -82,18 +82,14 @@ interface AppContextType {
   isStudentSelected: (studentName: string) => boolean;
   handleSaveAttendance: (e: React.FormEvent) => Promise<void>;
 
-  // Editing States & Handlers
+  // Editing: a saved session is edited in the Presensi register itself.
+  /** The saved session open in the register, as it was when opened. */
+  editingRecord: AbsensiRecord | null;
   editingId: number | null;
-  setEditingId: (val: number | null) => void;
-  editingNames: string;
-  setEditingNames: (val: string) => void;
-  editingTanggal: string;
-  setEditingTanggal: (val: string) => void;
-  editingScheduleId: number | undefined;
-  setEditingScheduleId: (val: number | undefined) => void;
+  /** Open a saved session in the register, with all its marks. */
   startEditing: (record: AbsensiRecord) => void;
+  /** Leave the register without saving the edit, back to Riwayat. */
   cancelEditing: () => void;
-  saveEditedRecord: (id: number) => Promise<void>;
   handleDeleteRecord: (id: number, tanggal: string) => Promise<void>;
   handleClearAllRecords: () => Promise<void>;
   /** Erase every session, class, santri and Excel draft. Settings stay. */
@@ -214,6 +210,8 @@ export type PendingOverwrite = {
   guruKeterangan?: string;
   scheduleId?: number;
   waktu?: string;
+  /** Set when the session being saved is an edit moved onto this one. */
+  editingId?: number;
 };
 
 export type ToastState = {
@@ -304,10 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [selectedScheduleId, records]);
 
   // Editing values
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingNames, setEditingNames] = useState<string>('');
-  const [editingTanggal, setEditingTanggal] = useState<string>('');
-  const [editingScheduleId, setEditingScheduleId] = useState<number | undefined>(undefined);
+  const [editingRecord, setEditingRecord] = useState<AbsensiRecord | null>(null);
+  const editingId = editingRecord?.id ?? null;
 
   // Selected arrays for Bulk Tools
   const [selectedRecordIds, setSelectedRecordIds] = useState<number[]>([]);
@@ -957,6 +953,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   /**
+   * Put a saved session's marks, reasons and teacher's mark into the register,
+   * or empty it when there is none. Sessions saved before statuses existed
+   * have only their present names, which count as Hadir.
+   */
+  const applySessionToRegister = (existing: AbsensiRecord | undefined) => {
+    setSessionKeteranganMap(existing?.keterangan ?? {});
+    setSessionGuruStatusState(existing?.guruStatus);
+    setSessionGuruKeteranganState(existing?.guruKeterangan ?? '');
+
+    if (existing?.statuses && Object.keys(existing.statuses).length > 0) {
+      setSessionStatuses(existing.statuses);
+      setTouchedStudents(new Set(Object.keys(existing.statuses)));
+    } else if (existing) {
+      const fromNames = statusesFromPeserta(existing.peserta ?? []);
+      setSessionStatuses(fromNames);
+      setTouchedStudents(new Set(Object.keys(fromNames)));
+    } else {
+      setSessionStatuses({});
+      setTouchedStudents(new Set());
+    }
+  };
+
+  /**
    * Load the statuses already saved for this date and class.
    *
    * Without this, reopening a session saved earlier starts every santri back
@@ -975,6 +994,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * when the current one has nothing unsaved in it.
    */
   useEffect(() => {
+    // While a saved session is being edited the register holds that session;
+    // moving the date or class only says where it will be saved, so nothing
+    // already saved there is read over it. Leaving the edit runs this again.
+    if (editingId !== null) return;
+
     let cancelled = false;
     const sessionKey = `${tanggalInput}|${selectedScheduleId ?? ''}`;
 
@@ -1010,21 +1034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setWaktuInput(existing?.waktu ?? usual);
         }
 
-        setSessionKeteranganMap(existing?.keterangan ?? {});
-        setSessionGuruStatusState(existing?.guruStatus);
-        setSessionGuruKeteranganState(existing?.guruKeterangan ?? '');
-
-        if (existing?.statuses && Object.keys(existing.statuses).length > 0) {
-          setSessionStatuses(existing.statuses);
-          setTouchedStudents(new Set(Object.keys(existing.statuses)));
-        } else if (existing) {
-          const fromNames = statusesFromPeserta(existing.peserta ?? []);
-          setSessionStatuses(fromNames);
-          setTouchedStudents(new Set(Object.keys(fromNames)));
-        } else {
-          setSessionStatuses({});
-          setTouchedStudents(new Set());
-        }
+        applySessionToRegister(existing);
       } catch (err) {
         console.error('[Load session statuses error]', err);
       }
@@ -1032,7 +1042,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     load();
     return () => { cancelled = true; };
-  }, [tanggalInput, selectedScheduleId, records, schedules]);
+  }, [tanggalInput, selectedScheduleId, records, schedules, editingId]);
 
   /** The mark on this santri for the session being edited, or nothing yet. */
   const sessionStatusFor = (studentName: string): StatusKey | undefined => {
@@ -1304,7 +1314,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // different schedule, so match on the pair rather than the date alone.
       const sameDate = await db.absensi.where('tanggal').equals(tanggalInput).toArray();
       const linkedId = selectedScheduleId ? Number(selectedScheduleId) : undefined;
-      const existing = sameDate.find(r => (r.scheduleId ?? undefined) === linkedId);
+      // The session being edited is not "another" session at its own place.
+      const existing = sameDate.find(
+        r => (r.scheduleId ?? undefined) === linkedId && r.id !== editingId
+      );
 
       if (existing) {
         // Overwriting a saved session replaces it, so it is staged and the
@@ -1319,8 +1332,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           guruStatus,
           guruKeterangan,
           scheduleId: selectedScheduleId,
-          waktu: waktuInput || undefined
+          waktu: waktuInput || undefined,
+          ...(editingId !== null ? { editingId } : {})
         });
+        return;
+      }
+
+      if (editingId !== null) {
+        // An edit saves over its own session, wherever the date and class
+        // now say it belongs. Undefined removes the field, so a mark or
+        // reason taken off on screen is taken off the session too.
+        await db.absensi.update(editingId, {
+          tanggal: tanggalInput,
+          peserta: parsedPeserta,
+          statuses,
+          keterangan,
+          guruStatus,
+          guruKeterangan,
+          scheduleId: selectedScheduleId,
+          waktu: waktuInput || undefined,
+          createdAt: Date.now()
+        });
+        finishEditing(tanggalInput);
         return;
       }
 
@@ -1373,6 +1406,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPendingOverwrite(null);
     if (!staged) return;
 
+    if (staged.editingId !== undefined) {
+      const movedId = staged.editingId;
+      try {
+        // The edited session moves onto this date and class, and the one
+        // already saved there is the one it replaces.
+        await db.transaction('rw', db.absensi, async () => {
+          await db.absensi.delete(staged.existingId);
+          await db.absensi.update(movedId, {
+            tanggal: staged.tanggal,
+            peserta: staged.peserta,
+            statuses: staged.statuses,
+            keterangan: staged.keterangan,
+            guruStatus: staged.guruStatus,
+            guruKeterangan: staged.guruKeterangan,
+            scheduleId: staged.scheduleId,
+            waktu: staged.waktu,
+            createdAt: Date.now()
+          });
+        });
+        finishEditing(staged.tanggal);
+      } catch (err) {
+        console.error('Error moving edited attendance:', err);
+        showToast('Tidak dapat menyimpan ke ponsel ini.', 'error');
+      }
+      return;
+    }
+
     try {
       await db.absensi.update(staged.existingId, {
         peserta: staged.peserta,
@@ -1409,6 +1469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!removed) return;
 
       await db.absensi.delete(id);
+      if (editingRecord?.id === id) endEditing();
 
       if (reportGenerated) {
         setReportGenerated(false);
@@ -1485,7 +1546,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedScheduleId(undefined);
       setNamesInput('');
       setLastSaved(null);
-      setEditingId(null);
+      setEditingRecord(null);
       setSelectedRecordIds([]);
       setReportSelectedRecordIds([]);
       setReportText('');
@@ -1500,70 +1561,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Inline Edit logic
+  /** Empty the register, as after a save: no marks, no class, no extras. */
+  const clearRegister = () => {
+    setNamesInput('');
+    setSelectedScheduleId(undefined);
+    sessionDirtyRef.current = false;
+    sessionKeyRef.current = null;
+    setSessionStatuses({});
+    setTouchedStudents(new Set());
+    resetSessionExtras();
+  };
+
+  /**
+   * Edit a saved session in the Presensi register, the same screen it was
+   * made on: every mark, reason, the teacher's mark and the time come with it.
+   */
   const startEditing = (record: AbsensiRecord) => {
-    setEditingId(record.id || null);
-    setEditingNames(record.peserta.join(', '));
-    setEditingTanggal(record.tanggal);
-    setEditingScheduleId(record.scheduleId);
+    if (record.id === undefined) return;
+    setEditingRecord(record);
+    setLastSaved(null);
+    setNamesInput('');
+    setTanggalInput(record.tanggal);
+    setSelectedScheduleId(record.scheduleId);
+    const usual = schedules.find(s => s.id === record.scheduleId)?.waktu ?? '';
+    setWaktuInput(record.waktu ?? usual);
+    applySessionToRegister(record);
+    setActiveTab('input');
+  };
+
+  /** Leave an edit: back to an empty register on today, and to Riwayat. */
+  const endEditing = () => {
+    setEditingRecord(null);
+    clearRegister();
+    setTanggalInput(todayYMD());
   };
 
   const cancelEditing = () => {
-    setEditingId(null);
-    setEditingNames('');
-    setEditingTanggal('');
-    setEditingScheduleId(undefined);
+    endEditing();
+    setActiveTab('riwayat');
   };
 
-  const saveEditedRecord = async (id: number) => {
-    if (!editingTanggal) {
-      showToast('Pilih tanggal edit.', 'error');
-      return;
+  const finishEditing = (tanggal: string) => {
+    showToast(`Presensi ${formatIndonesianDate(tanggal)} diperbarui.`, 'success');
+    endEditing();
+    if (reportGenerated) {
+      setReportGenerated(false);
+      setReportText('');
     }
-    if (!editingNames.trim()) {
-      showToast('Daftar nama tidak boleh kosong.', 'error');
-      return;
-    }
-
-    const updatedPeserta = editingNames
-      .split(',')
-      .map(name => capitalizeWords(name.trim()))
-      .filter(name => name.length > 0);
-
-    try {
-      // Keep the invariant that peserta is exactly the names marked hadir.
-      // Absences recorded for other santri are preserved; names dropped from
-      // the hadir list stop being claimed as present.
-      const existingRecord = await db.absensi.get(id);
-      const updatedStatuses: StatusMap = {};
-      for (const [key, value] of Object.entries(existingRecord?.statuses ?? {})) {
-        if (value !== 'hadir') updatedStatuses[key] = value as StatusKey;
-      }
-      for (const name of updatedPeserta) {
-        updatedStatuses[nameKey(name)] = 'hadir';
-      }
-
-      await db.absensi.update(id, {
-        tanggal: editingTanggal,
-        peserta: updatedPeserta,
-        statuses: updatedStatuses,
-        keterangan: pruneKeterangan(existingRecord?.keterangan, updatedStatuses),
-        scheduleId: editingScheduleId,
-        createdAt: Date.now()
-      });
-      showToast('Presensi berhasil diperbarui.', 'success');
-      setEditingId(null);
-      setEditingScheduleId(undefined);
-      loadRecords();
-
-      if (reportGenerated) {
-        setReportGenerated(false);
-        setReportText('');
-      }
-    } catch (err) {
-      console.error('Error updating edited record:', err);
-      showToast('Tidak dapat memperbarui presensi.', 'error');
-    }
+    loadRecords();
+    setActiveTab('riwayat');
   };
 
   // Export & download engine
@@ -2188,17 +2234,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isStudentSelected,
       handleSaveAttendance,
 
+      editingRecord,
       editingId,
-      setEditingId,
-      editingNames,
-      setEditingNames,
-      editingTanggal,
-      setEditingTanggal,
-      editingScheduleId,
-      setEditingScheduleId,
       startEditing,
       cancelEditing,
-      saveEditedRecord,
       handleDeleteRecord,
       handleClearAllRecords,
       handleResetAllData,

@@ -52,6 +52,36 @@ function sectionsOf(records: readonly ReportRecord[], classes: readonly ReportCl
   ].filter((s) => s.records.length > 0);
 }
 
+/**
+ * Sessions grouped under their class's name, classes A–Z, for the list a
+ * teacher picks from. Sessions with no class — or whose class was deleted —
+ * come last under "Tanpa kelas". Each group keeps the order it was given, so
+ * a newest-first list stays newest-first inside every class. Empty groups are
+ * dropped.
+ */
+export function sessionsByClassName<R extends {scheduleId?: number}>(
+  records: readonly R[],
+  classes: readonly ReportClass[],
+): {title: string; records: R[]}[] {
+  const titleOf = new Map(classes.map((c) => [c.id, c.title]));
+  const byTitle = new Map<string, R[]>();
+  const loose: R[] = [];
+
+  for (const r of records) {
+    const title = r.scheduleId !== undefined ? titleOf.get(r.scheduleId) : undefined;
+    if (title === undefined) {
+      loose.push(r);
+    } else {
+      byTitle.set(title, [...(byTitle.get(title) ?? []), r]);
+    }
+  }
+
+  const groups = [...byTitle.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'id', {sensitivity: 'base'}))
+    .map(([title, rs]) => ({title, records: rs}));
+  return loose.length > 0 ? [...groups, {title: NO_CLASS_TITLE, records: loose}] : groups;
+}
+
 const sessionsIn = (records: readonly ReportRecord[], week: ReportWeek) =>
   records
     .filter((r) => r.tanggal >= week.start && r.tanggal <= week.end)
