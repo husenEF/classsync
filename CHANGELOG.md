@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.7.1 — 2026-11-18
+
 ### Changed
 
 - **A report period is whole Ahad–Sabtu weeks again.** The week that contains
