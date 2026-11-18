@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.9.0 — 2026-11-18
+
 ### Added
 
 - **Riwayat can show one class.** A *Kelas* picker above the saved sessions
