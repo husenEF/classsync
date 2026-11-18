@@ -12,7 +12,9 @@ import {useApp} from '../context/AppContext';
 import {formatIndonesianDate} from '../utils/date';
 import {STATUS_LABEL, STATUS_ORDER, type StatusKey} from '../styles/palette';
 import {nameKey, reasonFor, tally} from '../roster';
+import {filterByClass, parseClassFilter, type ClassFilter} from '../utils/classFilter';
 import {Button} from '../ui/Button';
+import {Field} from '../ui/Field';
 import {ConfirmDialog} from '../ui/ConfirmDialog';
 
 /** Status counts for a session, whichever shape it was saved in. */
@@ -47,6 +49,37 @@ export const AttendanceHistory: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
+  /*
+   * Which class's sessions are shown. Remembered on this phone; a class
+   * deleted since falls back to all, so the list is never empty by accident.
+   */
+  const [classFilterState, setClassFilterState] = useState<ClassFilter>(() => {
+    try {
+      return parseClassFilter(localStorage.getItem('riwayat_class_filter'));
+    } catch {
+      return 'all';
+    }
+  });
+  const chooseClassFilter = (value: string) => {
+    const next = parseClassFilter(value);
+    setClassFilterState(next);
+    try {
+      localStorage.setItem('riwayat_class_filter', String(next));
+    } catch {
+      /* the choice just isn't remembered */
+    }
+  };
+  const classFilter: ClassFilter =
+    typeof classFilterState === 'number' && !schedules.some((s) => s.id === classFilterState)
+      ? 'all'
+      : classFilterState;
+  const filtered = classFilter !== 'all';
+  const visibleRecords = filterByClass(
+    records,
+    classFilter,
+    schedules.map((s) => s.id),
+  );
+
   if (loading) {
     return (
       <div className="cs-card" aria-live="polite">
@@ -79,11 +112,34 @@ export const AttendanceHistory: React.FC = () => {
             </Button>
           ) : null}
         </div>
-        <p className="cs-muted">
-          {records.length > 0
-            ? `${records.length} sesi tersimpan di ponsel ini.`
-            : 'Semua presensi tersimpan di ponsel ini, bukan di internet.'}
+        <p className="cs-muted" aria-live="polite">
+          {records.length === 0
+            ? 'Semua presensi tersimpan di ponsel ini, bukan di internet.'
+            : filtered
+              ? `${visibleRecords.length} dari ${records.length} sesi tersimpan di ponsel ini.`
+              : `${records.length} sesi tersimpan di ponsel ini.`}
         </p>
+
+        {records.length > 0 ? (
+          <Field id="riwayat_class_filter" label="Kelas">
+            {(p) => (
+              <select
+                {...p}
+                className="cs-select"
+                value={String(classFilter)}
+                onChange={(e) => chooseClassFilter(e.target.value)}
+              >
+                <option value="all">Semua kelas</option>
+                {schedules.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title} ({s.hari})
+                  </option>
+                ))}
+                <option value="none">Tanpa jadwal</option>
+              </select>
+            )}
+          </Field>
+        ) : null}
 
         {showExport && records.length > 0 ? (
           <div className="cs-card cs-card--inset">
@@ -94,7 +150,15 @@ export const AttendanceHistory: React.FC = () => {
                 : 'Pilih sesi yang ingin diekspor.'}
             </p>
             <div className="cs-row">
-              <Button onClick={handleSelectAllRecords}>Pilih semua</Button>
+              <Button
+                onClick={() =>
+                  handleSelectAllRecords(
+                    visibleRecords.map((r) => r.id).filter((id): id is number => id !== undefined),
+                  )
+                }
+              >
+                {filtered ? 'Pilih semua yang tampil' : 'Pilih semua'}
+              </Button>
               <Button
                 variant="ghost"
                 disabled={selectedRecordIds.length === 0}
@@ -142,11 +206,24 @@ export const AttendanceHistory: React.FC = () => {
         </section>
       ) : null}
 
+      {records.length > 0 && visibleRecords.length === 0 ? (
+        <section className="cs-card">
+          <div className="cs-empty">
+            <CalendarDays className="cs-empty__icon" aria-hidden="true" />
+            <h3 className="cs-empty__title">Belum ada sesi untuk kelas ini</h3>
+            <p className="cs-empty__body">
+              Sesi lain tetap tersimpan. Pilih kelas lain, atau tampilkan semua kelas.
+            </p>
+            <Button onClick={() => chooseClassFilter('all')}>Tampilkan semua kelas</Button>
+          </div>
+        </section>
+      ) : null}
+
       {/* The saved sessions. One column on a phone; from a laptop up they
           tile, because a month of sessions read down a 34rem column is several
           screens of scrolling with the rest of the window left empty. */}
       <div className="cs-cards">
-        {records.map((record) => {
+        {visibleRecords.map((record) => {
           const counts = summarise(record);
           const linked = schedules.find((s) => s.id === record.scheduleId);
 

@@ -127,6 +127,9 @@ santri yang memang tidak tercatat sama sekali.
   keterangan, status guru, dan jamnya, lalu *Simpan perubahan* menyimpannya
   kembali. Mengganti tanggal atau kelasnya memindahkan sesi itu; bila di sana
   sudah ada sesi, aplikasi bertanya dulu sebelum menggantinya.
+  Pilihan *Kelas* menampilkan sesi satu kelas saja, atau sesi *Tanpa jadwal*
+  (termasuk sesi yang kelasnya sudah dihapus); pilihan itu diingat di HP ini, dan
+  *Pilih semua* untuk ekspor hanya memilih sesi yang tampil.
 - **Jadwal** — kelas mingguan berulang, lengkap dengan pengingat dan ekspor ke
   kalender HP.
 - **Sinkron HP** — memindahkan data antar perangkat lewat QR code atau tautan,
