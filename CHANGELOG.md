@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.8.0 — 2026-11-18
+
 ### Added
 
 - **The Laporan session list can be grouped by class.** With *Semua kelas*
