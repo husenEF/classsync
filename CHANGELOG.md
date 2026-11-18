@@ -17,6 +17,14 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Added
+
+- **Riwayat can show one class.** A *Kelas* picker above the saved sessions
+  shows every class, one class, or *Tanpa jadwal* — sessions with no class,
+  including those whose class was deleted. The count reads "x dari y sesi",
+  the choice is remembered on the phone, and *Pilih semua* for export takes
+  only the sessions on screen.
+
 ## 2.8.0 — 2026-11-18
 
 ### Added

@@ -173,7 +173,8 @@ interface AppContextType {
   selectedRecordIds: number[];
   setSelectedRecordIds: React.Dispatch<React.SetStateAction<number[]>>;
   handleToggleSelectRecord: (id: number) => void;
-  handleSelectAllRecords: () => void;
+  /** Select every session, or only the ones given (those on screen). */
+  handleSelectAllRecords: (ids?: number[]) => void;
   handleDeselectAllRecords: () => void;
   handleExportCSV: () => void;
   handleExportJSON: () => void;
@@ -2160,8 +2161,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const handleSelectAllRecords = () => {
-    const allIds = records.map(r => r.id!).filter(Boolean);
+  const handleSelectAllRecords = (ids?: number[]) => {
+    const allIds = ids ?? records.map(r => r.id!).filter(Boolean);
     setSelectedRecordIds(allIds);
   };
 
