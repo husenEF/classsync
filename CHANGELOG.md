@@ -17,6 +17,16 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Changed
+
+- **A report period is whole Ahad–Sabtu weeks again.** The week that contains
+  the 19th now opens the next period instead of being cut in two, so a period
+  starts on the Sunday that falls on the 13th–19th and has four or five weeks.
+  *Oktober - November 2026* is 18 Okt – 14 Nov (18-24 Okt … 8-14 Nov); in
+  2.7.0 it was 20 Okt – 19 Nov with part-weeks at each end.
+- Period names are unchanged, so saved Excel drafts still open under the
+  period of the same name.
+
 ## 2.7.0 — 2026-11-16
 
 ### Changed
