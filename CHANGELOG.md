@@ -17,6 +17,13 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+### Added
+
+- **Izin takes a reason.** Marking a santri or the teacher *Izin* now opens
+  the same optional reason box as *Lainnya*. The reason is shown in Riwayat
+  and in both WhatsApp reports, e.g. "Budi (I: acara keluarga)" and
+  "Izin (1): Budi - acara keluarga".
+
 ## 2.9.0 — 2026-11-18
 
 ### Added
