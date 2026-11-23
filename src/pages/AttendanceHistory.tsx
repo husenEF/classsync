@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {useApp} from '../context/AppContext';
 import {formatIndonesianDate} from '../utils/date';
-import {STATUS_LABEL, STATUS_ORDER, type StatusKey} from '../styles/palette';
+import {STATUS_LABEL, STATUS_ORDER, takesReason, type StatusKey} from '../styles/palette';
 import {nameKey, reasonFor, tally} from '../roster';
 import {filterByClass, parseClassFilter, type ClassFilter} from '../utils/classFilter';
 import {Button} from '../ui/Button';
@@ -256,7 +256,7 @@ export const AttendanceHistory: React.FC = () => {
                 <p className="cs-muted">
                   <strong>Guru{linked?.guru ? ` (${linked.guru})` : ''}:</strong>{' '}
                   {STATUS_LABEL[record.guruStatus]}
-                  {record.guruStatus === 'etc' && record.guruKeterangan
+                  {takesReason(record.guruStatus) && record.guruKeterangan
                     ? ` — ${record.guruKeterangan}`
                     : ''}
                 </p>
@@ -286,7 +286,7 @@ export const AttendanceHistory: React.FC = () => {
                         const student = students.find((st) => st.nameKey === key);
                         const inRecord = record.peserta.find((n) => nameKey(n) === key);
                         const name = student?.name ?? inRecord ?? key;
-                        const reason = k === 'etc' ? reasonFor(record.keterangan, key) : '';
+                        const reason = takesReason(k) ? reasonFor(record.keterangan, key) : '';
                         return reason ? `${name} — ${reason}` : name;
                       });
                     if (names.length === 0) return null;

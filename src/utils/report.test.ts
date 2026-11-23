@@ -79,6 +79,13 @@ describe('buildWhatsAppReport with the newer fields', () => {
     ]);
     expect(text).toContain('* Peserta : Budi (H), Aisyah (S), Fajar (E: jemputan telat)');
   });
+
+  it('adds an Izin reason inside the bracket', () => {
+    const text = build([
+      {...pagi, statuses: {...pagi.statuses, fajar: 'izin' as const}, keterangan: {fajar: 'acara keluarga'}},
+    ]);
+    expect(text).toContain('* Peserta : Budi (H), Aisyah (S), Fajar (I: acara keluarga)');
+  });
 });
 
 describe('buildWhatsAppReportCompact', () => {
@@ -206,5 +213,28 @@ describe('sessionsByClassName', () => {
   it('leaves out a class with no sessions', () => {
     expect(sessionsByClassName([{tanggal: '2026-11-10', scheduleId: 3}], named)).toHaveLength(1);
     expect(sessionsByClassName([], named)).toEqual([]);
+  });
+});
+
+describe('Izin reasons in the compact report', () => {
+  it('prints the reason after the santri and after the teacher mark', () => {
+    const text = buildWhatsAppReportCompact({
+      periodLabel: 'September - Oktober 2026',
+      weeks,
+      records: [
+        {
+          tanggal: '2026-10-26',
+          peserta: ['Ubin'],
+          statuses: {ubin: 'hadir', budi: 'izin'},
+          keterangan: {budi: 'acara keluarga'},
+          guruStatus: 'izin',
+          guruKeterangan: 'rapat',
+          scheduleId: 1,
+        },
+      ],
+      classes: [{id: 1, title: 'Ngaji Pagi'}],
+    });
+    expect(text).toContain('Tgl 26/10 - Guru: Izin (rapat)');
+    expect(text).toContain('Izin (1): Budi - acara keluarga');
   });
 });

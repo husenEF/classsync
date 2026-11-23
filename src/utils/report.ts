@@ -1,5 +1,5 @@
 import {markedEntries, participantLine, reasonFor, tally, type StatusMap} from '../roster';
-import {STATUS_CODE, STATUS_ORDER, STATUS_REPORT_LABEL, type StatusKey} from '../styles/palette';
+import {STATUS_CODE, STATUS_ORDER, STATUS_REPORT_LABEL, takesReason, type StatusKey} from '../styles/palette';
 import {formatDateShort} from './date';
 
 type ReportRecord = {
@@ -138,10 +138,10 @@ export function buildWhatsAppReport({periodLabel, weeks, records, classes}: Repo
   return lines.join('\n').trim() + '\n';
 }
 
-/** "Guru: Sakit", or "Guru: Lainnya (rapat)", or nothing when it was not recorded. */
+/** "Guru: Sakit", or "Guru: Izin (rapat)", or nothing when it was not recorded. */
 function guruPart(rec: ReportRecord): string {
   if (!rec.guruStatus) return '';
-  const reason = rec.guruStatus === 'etc' ? (rec.guruKeterangan ?? '').trim() : '';
+  const reason = takesReason(rec.guruStatus) ? (rec.guruKeterangan ?? '').trim() : '';
   return ` - Guru: ${STATUS_REPORT_LABEL[rec.guruStatus]}${reason ? ` (${reason})` : ''}`;
 }
 
@@ -155,7 +155,7 @@ function statusLines(rec: ReportRecord): string[] {
     const names = entries
       .filter((e) => e.status === status)
       .map((e) => {
-        const reason = status === 'etc' ? reasonFor(rec.keterangan, e.key) : '';
+        const reason = takesReason(status) ? reasonFor(rec.keterangan, e.key) : '';
         return reason ? `${e.name} - ${reason}` : e.name;
       });
     if (names.length > 0) {

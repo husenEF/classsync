@@ -248,6 +248,15 @@ describe('participantLine', () => {
     expect(participantLine({peserta: [], statuses: {fajar: 'etc'}})).toBe('Fajar (E)');
   });
 
+  it('carries an Izin reason', () => {
+    const line = participantLine({
+      peserta: ['Ubin'],
+      statuses: {ubin: 'hadir', budi: 'izin'},
+      keterangan: {budi: ' acara keluarga '},
+    });
+    expect(line).toBe('Ubin (H), Budi (I: acara keluarga)');
+  });
+
   it('never prints a reason next to any other mark', () => {
     const line = participantLine({
       peserta: [],
@@ -266,6 +275,15 @@ describe('pruneKeterangan', () => {
         {fajar: 'etc', aan: 'hadir', budi: 'etc'},
       ),
     ).toEqual({fajar: 'rapat'});
+  });
+
+  it('keeps Izin reasons too', () => {
+    expect(
+      pruneKeterangan(
+        {budi: ' acara keluarga ', aan: 'demam'},
+        {budi: 'izin', aan: 'sakit'},
+      ),
+    ).toEqual({budi: 'acara keluarga'});
   });
 
   it('returns undefined when nothing is left', () => {

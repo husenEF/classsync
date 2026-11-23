@@ -24,13 +24,14 @@ export interface AbsensiRecord {
    */
   statuses?: StatusMap;
   /**
-   * Free-text reason per santri marked Lainnya (etc), keyed like `statuses`.
-   * Only santri whose status is 'etc' have an entry. Not indexed.
+   * Free-text reason per santri marked Izin or Lainnya (etc), keyed like
+   * `statuses`. Only santri whose status is 'izin' or 'etc' have an entry.
+   * Not indexed.
    */
   keterangan?: Record<string, string>;
   /** The teacher's own attendance for this session, when a class was picked. */
   guruStatus?: StatusKey;
-  /** Reason for the teacher's Lainnya mark. */
+  /** Reason for the teacher's Izin or Lainnya mark. */
   guruKeterangan?: string;
 }
 
