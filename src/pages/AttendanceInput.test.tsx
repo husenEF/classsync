@@ -602,7 +602,7 @@ describe('a class with members', () => {
   });
 });
 
-describe('Lainnya and its reason', () => {
+describe('Izin, Lainnya and their reason', () => {
   it('asks for a reason only once a santri is marked Lainnya', async () => {
     renderPage();
     await rosterNames();
@@ -632,6 +632,23 @@ describe('Lainnya and its reason', () => {
     expect(record.statuses).toEqual({'ahmad fauzi': 'hadir', 'budi santoso': 'etc'});
     expect(record.keterangan).toEqual({'budi santoso': 'terlambat jemputan'});
     expect(record.peserta).toEqual(['Ahmad Fauzi']);
+  });
+
+  it('asks for and saves a reason when a santri is marked Izin', async () => {
+    renderPage();
+    await rosterNames();
+
+    await userEvent.click(marksFor('Budi Santoso').getByRole('radio', {name: 'Izin'}));
+    await userEvent.type(
+      screen.getByRole('textbox', {name: 'Keterangan Budi Santoso'}),
+      'acara keluarga',
+    );
+    await userEvent.click(screen.getByRole('button', {name: /Simpan presensi/}));
+
+    await waitFor(async () => expect(await db.absensi.count()).toBe(1));
+    const [record] = await db.absensi.toArray();
+    expect(record.statuses).toEqual({'budi santoso': 'izin'});
+    expect(record.keterangan).toEqual({'budi santoso': 'acara keluarga'});
   });
 
   it('drops a reason whose santri was moved off Lainnya before saving', async () => {

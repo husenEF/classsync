@@ -237,3 +237,11 @@ export const STATUS_CODE: Record<StatusKey, 'H' | 'S' | 'I' | 'A' | 'E'> = {
 };
 
 export const STATUS_ORDER: StatusKey[] = ['hadir', 'sakit', 'izin', 'alpa', 'etc'];
+
+/** Marks that carry a free-text reason (keterangan): Izin and Lainnya. */
+export const STATUS_WITH_REASON: readonly StatusKey[] = ['izin', 'etc'];
+
+/** Whether a mark carries a free-text reason. */
+export function takesReason(status: StatusKey | undefined): boolean {
+  return status !== undefined && STATUS_WITH_REASON.includes(status);
+}

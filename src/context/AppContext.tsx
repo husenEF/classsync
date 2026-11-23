@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useRef 
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { db, upsertStudent, AbsensiRecord, ScheduleRecord, StudentRecord, checkForAndMigratePreviousDatabases } from '../db';
+import { takesReason } from '../styles/palette';
 import { buildStatusMap, nameKey, splitByClass, parseNameList, presentNames, pruneKeterangan, rosterFromRecords, statusesFromPeserta, tally, unmarkedNames, type StatusKey, type StatusMap, type StatusTally } from '../roster';
 import { formatIndonesianDate } from '../utils/date';
 import { isTooLongForWhatsApp, WHATSAPP_MAX_CHARS } from '../utils/share';
@@ -1308,7 +1309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const keterangan = pruneKeterangan(sessionKeterangan, statuses);
     const guruKeterangan =
-      guruStatus === 'etc' ? sessionGuruKeterangan.trim() || undefined : undefined;
+      takesReason(guruStatus) ? sessionGuruKeterangan.trim() || undefined : undefined;
 
     try {
       // A date can hold more than one session when each is linked to a

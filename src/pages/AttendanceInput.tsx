@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { Check, ChevronDown, ChevronUp, Eraser, Pencil, Plus, Save, Search, Trash2, UserPlus, Users, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { formatIndonesianDate } from "../utils/date";
-import { STATUS_CODE, STATUS_LABEL, STATUS_ORDER } from "../styles/palette";
+import { STATUS_CODE, STATUS_LABEL, STATUS_ORDER, takesReason } from "../styles/palette";
 import { nameKey, parseNameList, splitByClass } from "../roster";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -242,14 +242,18 @@ export const AttendanceInput: React.FC = () => {
         value={sessionStatusFor(name)}
         onChange={(status) => setSessionStatus(name, status)}
       />
-      {sessionStatusFor(name) === "etc" ? (
+      {takesReason(sessionStatusFor(name)) ? (
         <input
           className="cs-input cs-roster__note"
           type="text"
           value={sessionKeteranganFor(name)}
           onChange={(e) => setSessionKeterangan(name, e.target.value)}
           aria-label={`Keterangan ${name}`}
-          placeholder="Alasan, contoh: terlambat jemputan"
+          placeholder={
+            sessionStatusFor(name) === "izin"
+              ? "Alasan izin, contoh: acara keluarga"
+              : "Alasan, contoh: terlambat jemputan"
+          }
         />
       ) : null}
     </li>
@@ -483,14 +487,18 @@ export const AttendanceInput: React.FC = () => {
                 value={sessionGuruStatus}
                 onChange={setSessionGuruStatus}
               />
-              {sessionGuruStatus === "etc" ? (
+              {takesReason(sessionGuruStatus) ? (
                 <input
                   className="cs-input"
                   type="text"
                   value={sessionGuruKeterangan}
                   onChange={(e) => setSessionGuruKeterangan(e.target.value)}
                   aria-label="Keterangan guru"
-                  placeholder="Alasan, contoh: rapat"
+                  placeholder={
+                    sessionGuruStatus === "izin"
+                      ? "Alasan izin, contoh: rapat"
+                      : "Alasan, contoh: rapat"
+                  }
                 />
               ) : null}
             </div>

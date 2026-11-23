@@ -11,7 +11,7 @@
  * keeps producing the same output.
  */
 
-import {STATUS_CODE, STATUS_ORDER, type StatusKey} from './styles/palette';
+import {STATUS_CODE, STATUS_ORDER, takesReason, type StatusKey} from './styles/palette';
 
 export type {StatusKey};
 
@@ -193,7 +193,7 @@ export function participantLine(record: {
   if (entries.length === 0) return '-';
   return entries
     .map((e) => {
-      const reason = e.status === 'etc' ? reasonFor(record.keterangan, e.key) : '';
+      const reason = takesReason(e.status) ? reasonFor(record.keterangan, e.key) : '';
       return `${e.name} (${STATUS_CODE[e.status]}${reason ? `: ${reason}` : ''})`;
     })
     .join(', ');
@@ -242,7 +242,7 @@ export function reasonFor(
 }
 
 /**
- * Keep only the reasons that still belong to a Lainnya mark, trimmed.
+ * Keep only the reasons that still belong to an Izin or Lainnya mark, trimmed.
  *
  * A reason outliving its mark — the santri was changed to Hadir afterwards —
  * would resurface in a report next to the wrong status. Returns undefined
@@ -255,7 +255,7 @@ export function pruneKeterangan(
   const out: Record<string, string> = {};
   for (const [key, text] of Object.entries(keterangan ?? {})) {
     const reason = text.trim();
-    if (reason && statuses[key] === 'etc') out[key] = reason;
+    if (reason && takesReason(statuses[key])) out[key] = reason;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
