@@ -17,6 +17,8 @@ release will refuse to run on an empty one.
 
 ## Unreleased
 
+## 2.10.0 — 2026-11-23
+
 ### Added
 
 - **Izin takes a reason.** Marking a santri or the teacher *Izin* now opens
